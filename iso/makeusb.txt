@@ -134,7 +134,7 @@ echo "p.s. dont forget to umount $BUILDDIR when you are done messing with it :) 
 echo "	and delete the $BUILDDIR.vmdk file, and purge it from VirtualBox. "
 echo
 echo "p.p.s be careful, partman-auto does NOT like double spaces"
-echo "Enjoy, dicko"
+echo "Enjoy, DickO"
 
 
 
