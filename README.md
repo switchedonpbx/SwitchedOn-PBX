@@ -1,4 +1,4 @@
-Welcome to our latest dream...SwitchedON PBX, a new "OLD" Asterisk PBX based distribution.
+Welcome to our latest dream ... SwitchedON PBX, a new "OLD" Asterisk PBX based distribution.
 
 Why new and old? Simple, SwitchedON PBX is the natural evolution of Deselastixados, a fork of some Front End modules from Elastix(r) and the core from DEBPBX, the excellent project of debian and Asterisk made By Federico Pereira in 2009.
 
