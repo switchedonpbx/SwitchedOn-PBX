@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+# sop-help
+# switched on pbx-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+clear
+
+cat<<EOF
+
+SwitchedON PBX HELP
+
+Commands               Descriptions
+-----------------------------------------------------------------------
+a			asterisk -rvvvvvvvvvvvvvvvvvvvv
+aptkeyget.sh key	Imports a gpg key from gpg keyservers 
+hylafaxlog.sh		Shows a tail -f of the latest or current fax log
+l			ls -lasrt $1
+rasterisk		Asterisk CLI.
+passwd			set root password for console login.
+optimizemysql.sh	Optimizes mysql databases
+sop-pstn		detect and setup supported PSTN interface cards.
+sop-update		System to update SOP.
+sop-password		Change all system passwords.
+sop-support		Technical support system. You need to apply for a license. For more information run sop-support license
+advanced-install	Advanced install ad-ons.
+sop-wizard		Wizard (Change root password, set host and hostname, and change mail redirection for root in /etc/aliases.
+sop-postfix-gmail	Setup your email server to use your Gmail account.
+EOF
+

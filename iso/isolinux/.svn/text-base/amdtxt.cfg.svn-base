@@ -1,0 +1,5 @@
+label install64
+	menu label ^Unattended install 64bit
+	menu default64
+	kernel /install.amd/vmlinuz
+	append vga=788 initrd=/install.amd/initrd.gz man-db/auto-update=false time/zone=US/Pacific locale=en_US keymap=us language=en country=US console-setup/ask_detect=false auto=true keyboard-configuration/variant=USA console-setup/layoutcode=us preseed/file=/cdrom/preseed/preseed.txt DEBCONF_DEBUG=5 -- quiet 

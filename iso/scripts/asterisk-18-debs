@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888
+#  Y88b.                        888            888                    888 888     888 88888b  888
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888
+#
+#
+#                                8888888b.  888888b.  Y88b   d88P
+#                                888   Y88b 888  "88b  Y88b d88P
+#                                888    888 888  .88P   Y88o88P
+#                                888   d88P 8888888K.    Y888P
+#                                8888888P"  888  "Y88b   d888b
+#                                888        888    888  d88888b
+#                                888        888   d88P d88P Y88b
+#                                888        8888888P" d88P   Y88b
+#                                                                               switchedonpbx.org
+#
+#
+# asterisk-18-debs - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+PACKAGES="asterisk asterisk-mysql asterisk-mp3 asterisk-dahdi asterisk-mobile libasterisk-config-perl asterisk-doc asterisk-dev srtp-utils asterisk-sounds-extra asterisk-sounds-main dahdi-modules-`uname -r` dahdi-linux"
+
+HELPINGWORDS="";
+
+#Add xorcom repos for asterisk 1.8
+grep xorcom /etc/apt/sources.list &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	arch=`uname -m`
+	case $arch in
+		i686)
+			echo "
+deb http://updates.xorcom.com/pkg-voip/repo-i386-squeeze unstable main
+deb-src http://updates.xorcom.com/pkg-voip/repo-i386-squeeze unstable main
+
+" >> /etc/apt/sources.list
+		;;
+		x86_64)
+			echo "
+deb http://updates.xorcom.com/pkg-voip/repo-amd64-squeeze unstable main
+deb-src http://updates.xorcom.com/pkg-voip/repo-amd64-squeeze unstable main
+" >> /etc/apt/sources.list
+		;;
+		*)
+			echo "Unsupported architecture, sorry."
+		;;
+	esac
+fi
+apt-key add /usr/src/apt-key/autobuild.pgp
+#TAG:UPDATING APT REPOS
+apt-get update &>/dev/null
+
+#Check if asterisk is installed. Otherwise install it
+cat /etc/sop/sop-addons|grep asterisk &>/dev/null
+res=$?
+if [ $res -eq 0 ]; then
+	echo Asterisk already installed
+	exit 0
+fi
+
+#TAG: INSTALLING DEPENDENCIES
+aptitude install -y $PACKAGES
+
+PKGNAME=asterisk-18-debs
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#TAG:RECONFIGURING ASTERISK
+adduser www-data asterisk
+/etc/init.d/asterisk stop
+ln -s /var/lib/asterisk/moh /var/lib/asterisk/mohmp3 
+cp /etc/asterisk/asterisk.conf /etc/asterisk/asterisk.conf-`date +%Y.%m.%d.%Hh.%mm`
+sed -i "s,/usr/share/asterisk,/var/lib/asterisk," /etc/asterisk/asterisk.conf
+sed -i '1 {s/\<sh\>/bash/}' /usr/sbin/safe_asterisk
+sed -i "s,SAFE_AST_BACKGROUND=0,SAFE_AST_BACKGROUND=1," /usr/sbin/safe_asterisk
+sed -i "s/;full/full/" /etc/asterisk/logger.conf
+rm -rf /var/lib/asterisk/sounds
+rm -rf /usr/share/asterisk/sounds/custom
+mkdir -p /usr/share/asterisk/sounds/custom
+rm -rf /var/lib/asterisk/sounds/custom
+ln -s /usr/share/asterisk/* /var/lib/asterisk/
+mkdir -p /var/lib/asterisk/bin
+chown -R asterisk:asterisk /usr/share/asterisk/ /var/lib/asterisk/ /var/lib/asterisk/agi-bin/ /var/lib/asterisk/bin/
+
+#TAG:CHANGES FOR OPENVZ COMPATIBILITY
+ifconfig -a|grep venet &>/dev/null
+res=$?
+if [ $res -eq 0 ]; then
+	echo OpenVZ detected. Modifying asterisk accordingly
+	sed -i 's/TTY=9/#TTY=9/g' /usr/sbin/safe_asterisk
+	sed -i 's/chown asterisk \/dev\/tty9/#chown asterisk \/dev\/tty9/g' /etc/init.d/asterisk
+	sed -i 's/\/sbin\/start_udev/#\/sbin\/start_udev/g' /etc/rc.d/rc.sysinit
+	sed -i 's/\/usr\/sbin\/fxotune -s/#\/usr\/sbin\/fxotune -s/g' /etc/rc.local
+fi
+
+#TAG:RESTARTING ASTERISK
+/etc/init.d/asterisk restart
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+

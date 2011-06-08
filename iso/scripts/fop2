@@ -1,0 +1,233 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# fop2 - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)  
+# This script is licensed under GNU GPL version 2.0
+
+############################### START VARIABLES #######################################
+FOP2_VERSION="2.20";
+FOP2_ADMIN_VERSION="1.2.4";
+FOP2_DB="fop2_db"; 
+FOP2_USER="fop2_us";                                                                                                               
+FOP2_DB_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+data=$( tempfile 2>/dev/null )
+trap "rm -f $data" 0 1 2 5 15
+CPUINFO=`uname -m`
+
+HELPINGWORDS="";
+
+PKGNAME=fop2
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+
+if [ -f /etc/sop/passwords ]
+then                    
+    source /etc/sop/passwords
+else                                                     
+
+    while [ 1 ]; do
+
+	dialog --backtitle "SwitchedON PBX - FOP2" --title "Alert" --yesno "\nFop2 requires the mysql root password to install the databases. \n\nIf you don't rembember the password please get it, exit the script of installation and run it again. \n\nAnother option is to keep the file /root/password and run the script, the system will detect it and then will get the root password from this file. \n\nPress 'yes' to continue." 15 80
+	sel=$?
+	case $sel in
+   	0) 
+		;;
+   	1) 
+		exit; 
+		;;
+   	255) 
+		;;
+	esac
+
+	# get password with the --insecure option
+	dialog --backtitle "SwitchedON PBX - FOP2"   --title "Password" --clear --insecure --passwordbox "Enter your password Mysql root" 10 35 2> $data
+ 	ret=$?
+	# make decison
+	case $ret in
+	  0)
+    		PASS1=$(cat $data)
+		;;
+	  1)
+    		exit;
+		;;
+  	255)
+ 		[ -s $data ] &&  cat $data || echo "ESC pressed.";
+		;;
+	esac
+
+
+	dialog --backtitle "SwitchedON PBX - FOP2"   --title "Password" --clear --insecure --passwordbox "Re enter your password Mysql root" 10 35 2> $data
+	ret=$?
+	# make decison
+	case $ret in
+	  0)
+        	PASS2=$(cat $data)
+        	;;
+	  1)
+        	exit;
+        	;;
+  	255)
+        	[ -s $data ] &&  cat $data || echo "ESC pressed.";
+        	;;
+	esac
+
+	if [ "$PASS1" != "$PASS2" ]; then
+		dialog  --backtitle "SwitchedON PBX - FOP2"  --title "Info" --clear --msgbox "The passwords do not match, please try again!" 10 41
+		continue;
+	fi
+
+	if [ "$PASS1" == "" ]; then
+		dialog --backtitle "SwitchedON PBX - FOP2" --title "Info" --clear --msgbox "The passwords is empty, please try again!" 10 41
+		continue;
+	fi
+
+        SQL_RESULT=`echo "show databases;" | mysql -u root -p${PASS1} 2>&1 | grep 'Access denied'`
+	if [ "$SQL_RESULT" != "" ]; then
+		dialog --title "Info" --clear --msgbox "The password is not valid!, lets again!" 10 41
+		continue;
+	fi
+	MYSQL_ROOT_PW=$PASS1
+	break;
+
+     done
+
+fi
+
+clear
+
+#Check if freepbx is already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo Installing freepbx
+bash /usr/src/scripts/freepbx
+else
+echo freepbx already installed
+fi
+
+
+#TAG:INSTALLATION & CONFIGURATION FOP2
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+echo "
+# FOP2" >> /etc/sop/passwords 
+echo "FOP2_DB=\"${FOP2_DB}\";" >> /etc/sop/passwords 
+echo "FOP2_USER=\"${FOP2_USER}\";" >> /etc/sop/passwords 
+echo "FOP2_DB_PW=\"${FOP2_DB_PW}\";" >> /etc/sop/passwords 
+source /etc/amportal.conf
+
+cd /usr/src
+if [ "$CPUINFO" == "i686" ]; then
+      wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/programs/fop2-${FOP2_VERSION}-debian-i386.tgz -O /usr/src/fop2-${FOP2_VERSION}-debian-i386.tgz
+else
+      wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/programs/fop2-${FOP2_VERSION}-debian-x86_64.tgz -O /usr/src/fop2-${FOP2_VERSION}-debian-x86_64.tgz
+fi
+
+cd /usr/src/
+wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/programs/fop2admin-${FOP2_ADMIN_VERSION}.tgz -O /usr/src/fop2admin-${FOP2_ADMIN_VERSION}.tgz
+
+tar zxf /usr/src/fop2-${FOP2_VERSION}-debian-*.tgz
+
+#TAG:INSTALLATION
+cd fop2
+make install
+cd /usr/local/fop2
+cat extensions_override_freepbx.conf >> /etc/asterisk/extensions_override_freepbx.conf
+echo "#extensions_override_freepbx.conf" >> /etc/asterisk/extensions_custom.conf
+
+#TAG:AUTOCONFIG
+sed -i "s/FROM asterisk/FROM ${ASTERISK_DB}/" /usr/local/fop2/autoconfig-buttons-freepbx.sh
+sed -i "s/FROM asterisk/FROM ${ASTERISK_DB}/" /usr/local/fop2/autoconfig-users-freepbx.sh
+chmod +x /usr/local/fop2/autoconfig-buttons-freepbx.sh
+chmod +x /usr/local/fop2/autoconfig-users-freepbx.sh
+
+#TAG:MANAGER
+sed -i "s/\(manager_user= *\)\(.*\)/\1$AMPMGRUSER/" /usr/local/fop2/fop2.cfg
+sed -i "s/\(manager_secret= *\)\(.*\)/\1$AMPMGRPASS/" /usr/local/fop2/fop2.cfg
+
+#TAG:MOD FOP1
+echo "" >> /var/www/html/panel/op_server.cfg
+echo "#MOD LISTEN_PORT" >> /var/www/html/panel/op_server.cfg
+echo "listen_port=4444" >> /var/www/html/panel/op_server.cfg
+
+#TAG:VISUAL PHONEBOOK
+sed -i "s/^\s*\$DBNAME\s*=\s*'.*'\s*;\s*/\$DBNAME = '$FOP2_DB';/g" /var/www/html/fop2/config.php
+sed -i "s/^\s*\$DBUSER\s*=\s*'.*'\s*;\s*/\$DBUSER = '$FOP2_USER';/g" /var/www/html/fop2/config.php
+sed -i "s/^\s*\$DBPASS\s*=\s*'.*'\s*;\s*/\$DBPASS = '$FOP2_DB_PW';/g" /var/www/html/fop2/config.php
+
+echo "CREATE DATABASE IF NOT EXISTS $FOP2_DB;" | mysql -u root -p${MYSQL_ROOT_PW}
+echo "GRANT ALL PRIVILEGES ON $FOP2_DB.* TO $FOP2_USER@localhost IDENTIFIED BY '$FOP2_DB_PW';" | mysql -u root -p${MYSQL_ROOT_PW}
+sed -i "s/fop2/$FOP2_DB/" /var/www/html/fop2/mysql.db
+mysql -u$FOP2_USER -p$FOP2_DB_PW $FOP2_DB < /var/www/html/fop2/mysql.db
+
+#TAG:INSTALL FREEPBX MODULE fop2admin
+cd /var/www/html/admin/modules
+tar zxf /usr/src/fop2admin-${FOP2_ADMIN_VERSION}.tgz
+/var/lib/asterisk/bin/module_admin install fop2admin
+/var/lib/asterisk/bin/module_admin reload
+
+#TAG:RUN
+echo "Restarting...."
+/usr/local/fop2/autoconfig-buttons-freepbx.sh
+/usr/local/fop2/autoconfig-users-freepbx.sh
+/usr/local/sbin/amportal restart
+/etc/init.d/fop2 start
+
+
+# Adds deselastixados menuitem
+
+PKGNAME="fop2";
+
+exists=`sqlite3 /var/www/db/acl.db "select * from acl_resource;"|grep ${PKGNAME}`
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing ${PKGNAME} deselastixados menuitem
+	last_resource=`sqlite3 /var/www/db/acl.db "select * from acl_resource;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	resource_to_use=`expr $last_resource + 1` 
+	last_permission=`sqlite3 /var/www/db/acl.db "select * from acl_group_permission;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	group_permission_to_use=`expr $last_permission + 1` 
+	sqlite3 /var/www/db/menu.db  "insert into menu (id,IdPArent,Link,Name,Type,order_no) values ('${PKGNAME}','pbxconfig','/fop2','${PKGNAME}','framed','44');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_resource (id,name,description) values ('$resource_to_use','${PKGNAME}','${PKGNAME}');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_group_permission (id,id_action,id_group,id_resource) values ('$group_permission_to_use',1,1,'$resource_to_use');" 
+	# Add translations to all lang files
+	for i in `ls -1 /var/www/html/lang/`; do 
+	mv /var/www/html/lang/$i /var/www/html/lang/$i.backup
+	sed '/^\$arrLang=array/a \"${PKGNAME}\" => \"${PKGNAME}\",' /var/www/html/lang/$i.backup > /var/www/html/lang/$i
+	done;
+	rm -rf /var/www/html/lang/*.backup
+else
+echo ${PKGNAME} menuitem already installed
+fi
+
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+exit 0

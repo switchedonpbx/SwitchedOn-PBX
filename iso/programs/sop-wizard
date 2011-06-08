@@ -1,0 +1,174 @@
+#!/bin/bash
+#     _____         _ _       _              _  ____  _   _   _____  ______   __
+#    / ____|       (_) |     | |            | |/ __ \| \ | | |  __ \|  _ \ \ / /
+#   | (_____      ___| |_ ___| |__   ___  __| | |  | |  \| | | |__) | |_) \ V / 
+#    \___ \ \ /\ / / | __/ __| '_ \ / _ \/ _` | |  | | . ` | |  ___/|  _ < > <  
+#    ____) \ V  V /| | || (__| | | |  __/ (_| | |__| | |\  | | |    | |_) / . \ 
+#   |_____/ \_/\_/ |_|\__\___|_| |_|\___|\__,_|\____/|_| \_| |_|    |____/_/ \_\
+#
+#                              		                        switchedonpbx.org
+#
+# sop-wizard - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)  
+# This script is licensed under GNU GPL version 2.0
+#                                                   
+
+trap "echo 'ctr-c rejected!'" INT TERM
+
+#remove sop-wizard /usr/local/sbin/sop-wizard
+sed -i "s/\/usr\/local\/sbin\/sop-wizard/\/bin\/bash/g" "/etc/passwd" 
+
+#VARIABLE
+data=$( tempfile 2>/dev/null )
+ 
+# trap it
+trap "rm -f $data" 0 1 2 5 15
+
+
+while [ 1 ]; do
+
+# get password with the --insecure option
+dialog --backtitle "SwithedON PBX - Wizard - Part 1"   --title "Password" \
+--clear \
+--insecure \
+--passwordbox "Enter your desired root password" 10 30 2> $data
+ 
+ret=$?
+
+# make decison
+case $ret in
+
+  0)
+    	PASS1=$(cat $data)
+	;;
+  1)
+    	break;
+	;;
+  255)
+ 	[ -s $data ] &&  cat $data || echo "ESC pressed.";
+	;;
+
+esac
+
+
+dialog --backtitle "SwithedON PBX - Wizard - Part 1"   --title "root password" \
+--clear \
+--insecure \
+--passwordbox "Re-enter your desired root password" 10 30 2> $data
+
+ret=$?
+
+# make decison
+case $ret in
+
+  0)
+        PASS2=$(cat $data)
+        ;;
+  1)
+        break;
+        ;;
+  255)
+        [ -s $data ] &&  cat $data || echo "ESC pressed.";
+        ;;
+
+esac
+
+
+if [ "$PASS1" == "$PASS2" ]; then
+	break;
+else
+	dialog --title "Info" --clear --msgbox "Passwords do not match, please try again!" 10 41
+fi
+
+done
+
+echo "root:$(echo $PASS1 | openssl passwd -1 -stdin)" | chpasswd -e
+#################################################################################################################################
+HOSTNAME=$(hostname -s)
+dialog --backtitle "SwithedON PBX - Wizard - Part 2"   --title "Enter PBX Host Name"  --inputbox "Host Name ($HOSTNAME):" 8 60 2> $data
+HOSTS=`cat $data`
+
+if [ "$(echo $HOSTS | grep '^[A-Za-z_-]*$' )" == "" ]; then
+        HOSTS=$HOSTNAME;
+fi
+
+DOMAIN=$(hostname -d)
+dialog --backtitle "SwithedON PBX - Wizard - Part 2"   --title "Enter PBX Domain Name"  --inputbox "Domain Name ($DOMAIN):" 8 60 2> $data
+HOSTNAME=`cat $data`
+
+if [ "$(echo $HOSTNAME | grep '^[A-Za-z\._-]*$' )" == "" ]; then
+	HOSTNAME=$DOMAIN;
+fi
+
+
+#VARIABLES
+HOST_AND_HOSTNAME="${HOSTS}.${HOSTNAME}";
+IP_ADRESS=`ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
+
+#RECONFIGURATION HOSTS
+rm /etc/hosts
+echo "
+127.0.0.1 localhost.localdomain localhost
+${IP_ADRESS} ${HOST_AND_HOSTNAME} ${HOSTS}         
+
+# The following lines are desirable for IPv6 capable hosts
+::1 localhost ip6-localhost ip6-loopback                  
+fe00::0 ip6-localnet                                      
+ff00::0 ip6-mcastprefix                                   
+ff02::1 ip6-allnodes                                      
+ff02::2 ip6-allrouters                                    
+ff02::3 ip6-allhosts                                      
+" >> /etc/hosts                 
+
+echo ${HOST_AND_HOSTNAME} > /etc/hostname
+/etc/init.d/hostname.sh start       
+
+
+#RECONFIGURATION POASTERISK_DBSTFIX
+postconf -e "myhostname = ${HOST_AND_HOSTNAME}" 
+postconf -e "mydestination = ${HOST_AND_HOSTNAME}, localhost.${HOSTNAME}, localhost.localdomain, localhost"
+postconf -e "inet_protocols = all"                                                                   
+postconf -e "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128"                              
+echo ${HOST_AND_HOSTNAME} > /etc/mailname                                                               
+/etc/init.d/postfix restart 
+
+#RECONFIGURATION .BASHRC
+sed -i "s/_HOST_AND_HOSTNAME_/${HOST_AND_HOSTNAME}/g" "/root/.bashrc"
+ 
+#################################################################################################################################
+MAIL=`cat /etc/aliases |  grep "@" | cut -d: -f2 | sed 's/^ //g'`
+
+while [ 1 ]; do
+
+	dialog --backtitle "SwithedON PBX - Wizard - Part 3" --title "Enter Administrator email" --inputbox "Administrator email ($MAIL): " 8 60 2> $data
+NEW_MAIL=`cat $data` 
+
+	if [ "$(echo $NEW_MAIL | grep '^[a-zA-Z0-9\._-]\+@[a-zA-Z0-9\._-]\+$')" != "" ]; then
+		break;
+	fi
+
+done;
+
+rm /etc/aliases
+echo "# See man 5 aliases for format
+postmaster:    root
+root: $NEW_MAIL
+" >> /etc/aliases
+/usr/bin/newaliases
+#################################################################################################################################
+dialog --backtitle "SwithedON PBX - Wizard - Part 3"  --title "Installation Successful" --clear --msgbox "Thank you for your time. This only runs one time per installation. Sorry for the inconvenience, try to reconnect to the console." 10 41
+
+
+# also need to edit the PS1= in .bashrc to reflect the new hostname
+cat /etc/sop/passwords|mail -s "Your SOP passwords, please don't loose." root
+
+
+
+
+
+
+

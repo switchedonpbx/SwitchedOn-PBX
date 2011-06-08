@@ -1,0 +1,191 @@
+#!/bin/bash
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888
+#  Y88b.                        888            888                    888 888     888 88888b  888
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888
+#
+#
+#                                8888888b.  888888b.  Y88b   d88P
+#                                888   Y88b 888  "88b  Y88b d88P
+#                                888    888 888  .88P   Y88o88P
+#                                888   d88P 8888888K.    Y888P
+#                                8888888P"  888  "Y88b   d888b
+#                                888        888    888  d88888b
+#                                888        888   d88P d88P Y88b
+#                                888        8888888P" d88P   Y88b
+#                                                                               switchedonpbx.org
+#
+#
+# SwitchedONPBX-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira info@opentecnologic.com
+#
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+#
+# Unattended - How to create an iso starting from Debian Squeeze
+#
+# Version 2.0
+########################################################################################################
+# About this documentation
+#
+# In this article, I'm going to document how to create a unattended installation ISO, starting from a Debian Squeee 6.0 image. The idea is that all collaborators get documented before bringing in their code.
+#
+# The method we are going to use for the ISO creation is based on debian-installer. With this, we are going to automate Debian installation process and then run our base system installation scripts.
+#
+# To achieve this we need to download latest Squeeze image, mount it, make a copy into our hd, add some files -among them the pre-installation script- where we can specify what to do at install time.
+#
+# The pre-installation script has the following stages:
+#
+# Localization.
+# Keyboard selection.
+# Network configuration.
+# Mirror settings.
+# Clock and time zone setup.
+# Partitioning.
+# Account setup.
+# Root password.
+# Apt setup.
+# Package selection.
+# Boot loader installation.
+# Advanced options.
+#
+# Ok, so now we know the theory, let's start over.
+#
+# Note: It's necessary to have a Debian Squeeze box to replicate this guide. If you don't have it, you will need to install it, maybe in a Virtual Machine, in order to create the iso.
+#
+# Concept
+#
+# The main goal, is to make the final ISO completely unattended, with no internet connection and without any user interaction.
+#
+# To achieve this, some problems needed to be solved first.
+#
+# Automate OS installation using preseed file.
+# Copy .deb packages of dependencies to install Asterisk and all needed services.
+# Generate a local repository 
+# Fetch all needed Asterisk source files from Digium's website.
+# Run our custom instalation script after first boot.
+#
+# Getting everything ready
+#
+# First we delete old files, and download Debian Squeeze ISO . I use wget, as I'm used to it, and if the internet connection fails, it can resume dowloads using -c switch. 
+#
+SOP_VERSION="1.00";
+CHECKOUT_DIR="/usr/src/isobuild";
+
+if [ -f /etc/sop/sop-variables ]; then
+	. /etc/sop/sop-variables
+	sed -i '/CHECKOUT_DIR/d' /etc/sop/sop-variables
+else
+	mkdir /etc/sop
+fi
+
+if [ ! -z "${CHECKOUT_DIR}" ]; then
+	CHECKOUT_DIR=${CHECKOUT_DIR}
+fi
+
+if [ ! -z "$1" ]; then
+	CHECKOUT_DIR=$1
+fi
+
+mkdir -p  ${CHECKOUT_DIR}
+
+# Then we install some tools we'll need: rsync subversion genisoimage/mkisofs
+
+if [ -f /etc/debian_version ]; then
+
+                        if ! dpkg -s rsync &> /dev/null; then
+                                apt-get -y install rsync >> /dev/null 2>&1
+                        fi
+
+                        if ! dpkg -s subversion &> /dev/null; then
+                                apt-get -y install subversion >> /dev/null 2>&1
+                        fi
+
+                        if ! dpkg -s genisoimage &> /dev/null; then
+                                apt-get -y install genisoimage >> /dev/null 2>&1
+                        fi
+
+                        if ! dpkg -s tofrodos &> /dev/null; then
+                                apt-get -y install tofrodos >> /dev/null 2>&1
+                        fi
+
+elif [ -f /etc/redhat-release ]; then
+
+                        if [[ $( rpm -qa rsync ) == *rsync* ]]; then
+                                echo "" >> /dev/null 2>&1
+                        else
+                                echo "Install Package rsync..."
+                                yum -y install rsync >> /dev/null 2>&1
+                        fi
+
+                        if [[ $( rpm -qa subversion ) == *subversion* ]]; then
+                                echo "" >> /dev/null 2>&1
+                        else
+                                echo "Install Package subversion..."
+                                yum -y install subversion >> /dev/null 2>&1
+                        fi
+
+                        if [[ $( rpm -qa mkisofs ) == *mkisofs* ]]; then
+                                echo "" >> /dev/null 2>&1
+                        else
+                                echo "Install Package mkisofs..."
+                                yum -y install mkisofs >> /dev/null 2>&1
+                        fi
+
+                        if [[ $( rpm -qa dos2unix ) == *dos2unix* ]]; then
+                                echo "" >> /dev/null 2>&1
+                        else
+                                echo "Install Package dos2unix..."
+                                yum -y install dos2unix >> /dev/null 2>&1
+                        fi
+
+else
+               		exit 0
+fi
+
+rm -rf ${CHECKOUT_DIR}/switchedon-${SOP_VERSION}.iso ${CHECKOUT_DIR}/cd ${CHECKOUT_DIR}/switchedon
+if [ ! -f  ${CHECKOUT_DIR}/debian-6.0.1a-amd64-i386-netinst.iso ]; then
+	wget http://cdimage.debian.org/debian-cd/6.0.1a/multi-arch/iso-cd/debian-6.0.1a-amd64-i386-netinst.iso -O ${CHECKOUT_DIR}/debian-6.0.1a-amd64-i386-netinst.iso
+fi
+
+mkdir -p ${CHECKOUT_DIR}/cd ${CHECKOUT_DIR}/switchedon
+# Once we have the ISO, we move it to ${CHECKOUT_DIR} directory. Then we create 2 directories called ${CHECKOUT_DIR}/switchedon and ${CHECKOUT_DIR}/cd.
+# We mount Debian ISO into ${CHECKOUT_DIR}/switchedon and then we sync all its contents to the ${CHECKOUT_DIR}/cd directory, so we have a clone.
+mount -o loop ${CHECKOUT_DIR}/debian-6.0.1a-amd64-i386-netinst.iso ${CHECKOUT_DIR}/switchedon/
+rsync -a -H --exclude=TRANS.TBL ${CHECKOUT_DIR}/switchedon/ ${CHECKOUT_DIR}/cd
+umount ${CHECKOUT_DIR}/switchedon
+rm -fr ${CHECKOUT_DIR}/switchedon ${CHECKOUT_DIR}/cd/isolinux
+# Then we download our custom content from the svn and add it to the cd
+
+svn export --force https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/ ${CHECKOUT_DIR}/cd/
+
+# Finally we create the iso
+dos2unix ${CHECKOUT_DIR}/cd/scripts/*
+dos2unix ${CHECKOUT_DIR}/cd/tools/*
+
+if [ -f /etc/debian_version ]; then
+	cd ${CHECKOUT_DIR}/cd && md5sum `find -follow -type f` > md5sum.txt && cd .. && genisoimage -o switchedon-${SOP_VERSION}-amd64-i386-netinst.iso -r -J -no-emul-boot -boot-load-size 4 -boot-info-table -b isolinux/isolinux.bin -c isolinux/boot.cat ./cd
+elif [ -f /etc/redhat-release ]; then
+	cd ${CHECKOUT_DIR}/cd && md5sum `find -follow -type f` > md5sum.txt && cd .. && mkisofs -o switchedon-${SOP_VERSION}-amd64-i386-netinst.iso -r -J -no-emul-boot -boot-load-size 4 -boot-info-table -b isolinux/isolinux.bin -c isolinux/boot.cat ./cd
+else
+               exit 0
+fi
+
+sed -i '/CHECKOUT_DIR/d' /etc/sop/sop-variables
+echo "CHECKOUT_DIR=\"${CHECKOUT_DIR}\";" >> /etc/sop/sop-variables
+
+echo ""
+echo "< -- ISO Created Successfully :) -->"
+echo "The location of the iso is:  ${CHECKOUT_DIR}/switchedon-${SOP_VERSION}-amd64-i386-netinst.iso"
+exit 0
+
+#
+# gracias amigos :)
+#
+# Debian Official preseed documentation: http://d-i.alioth.debian.org/manual/en.i386/            

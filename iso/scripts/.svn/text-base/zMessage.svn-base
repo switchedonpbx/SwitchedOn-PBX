@@ -1,0 +1,219 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# zMessage - 12/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+WWW_ROOT="/var/www/html"
+
+if [ -f /etc/sop/passwords ]; then
+sed -i "/ZMESSAGE/d" /etc/sop/passwords
+. /etc/sop/passwords
+fi
+
+WWW_ROOT="/var/www/html";
+
+
+HELPINGWORDS="";
+
+PKGNAME=$0
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i '/${PKGNAME}/d' /etc/sop/sop-addons
+fi
+
+#TAG: AUTOGENERATING PASSWORDS
+ZMESSAGE_DB="zMessage";
+ZMESSAGE_DB_USER="zmessagedbuser";
+ZMESSAGE_DB_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+ZMESSAGE_AMI_USER="zmessageamiuser";
+ZMESSAGE_AMI_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+#ZMESSAGE_WEB_USER="zmessagewebuser";
+#ZMESSAGE_WEB_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+#ZMESSAGE_WEB_PW_SHA1=`echo -n "${ZMESSAGE_WEB_PW}" | sha1sum | awk '{ print $1 }'`
+
+#####################################################################################################
+
+PACKAGES="sun-java6-jre"
+
+#TAG:INSTALLING DEPENDENCIES
+export DEBIAN_FRONTEND="noninteractive";
+
+#Check if chan_dongle is installed. Otherwise install it
+cat /etc/sop/sop-addons|grep chan_dongle &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo Installing chan_dongle
+bash /usr/src/scripts/chan_dongle
+else
+echo chan_dongle already installed
+fi
+
+#Check if freepbx is installed. Otherwise install it
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo Installing freepbx
+bash /usr/src/scripts/freepbx
+else
+echo freepbx already installed
+fi
+
+. /etc/sop/passwords
+
+#TAG: STORING PASSWORDS INTO /etc/sop/passwords
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+echo "
+#ZMESSAGE PASSWORDS" >> /etc/sop/passwords
+echo "ZMESSAGE_DB=\"${ZMESSAGE_DB}\";" >> /etc/sop/passwords
+echo "ZMESSAGE_DB_USER=\"${ZMESSAGE_DB_USER}\";" >> /etc/sop/passwords
+echo "ZMESSAGE_DB_PW=\"${ZMESSAGE_DB_PW}\";" >> /etc/sop/passwords
+echo "ZMESSAGE_AMI_USER=\"${ZMESSAGE_AMI_USER}\";" >> /etc/sop/passwords
+echo "ZMESSAGE_AMI_PW=\"${ZMESSAGE_AMI_PW}\";" >> /etc/sop/passwords
+#echo "ZMESSAGE_WEB_USER=\"${ZMESSAGE_WEB_USER}\";" >> /etc/sop/passwords
+#echo "ZMESSAGE_WEB_PW=\"${ZMESSAGE_WEB_PW}\";" >> /etc/sop/passwords
+#echo "ZMESSAGE_WEB_PW_SHA1=\"${ZMESSAGE_WEB_PW_SHA1}\";" >> /etc/sop/passwords
+
+# Instal openjdk java jre
+#apt-get -y install openjdk-6-jre-headless
+# Instal sun java jre
+sudo echo sun-java6-jre shared/accepted-sun-dlj-v1-1 select true | sudo /usr/bin/debconf-set-selections
+sudo apt-get install --yes ${PACKAGES}
+echo "JAVA_HOME=/usr/lib/jvm/java-6-sun" >> /etc/bash.bashrc
+echo "PATH=\$PATH:\$JAVA_HOME/bin" >> /etc/bash.bashrc
+java -version
+
+cd /usr/src/
+svn export http://svn.zred.es/zMessage > /dev/null
+
+if [ -d ${WWW_ROOT}/zMessage ]; then
+	tar cfvz /root/zmessage-`date +%Y.%m.%d.%Hh.%mm` ${WWW_ROOT}/zMessage  > /dev/null
+	rm -rf ${WWW_ROOT}/zMessage
+fi
+mv zMessage/ ${WWW_ROOT}/
+
+# Change BD to avoid db creation
+sed -i "s/USE \`sms\`;/USE \`${ZMESSAGE_DB}\`;/g" ${WWW_ROOT}/zMessage/scriptsBBDD.sql
+sed -i "/CREATE\ DATABASE/d" ${WWW_ROOT}/zMessage/scriptsBBDD.sql
+
+echo "## Creating ${ZMESSAGE_DB} MySQL database ##"
+#TAG:CREATE USER
+echo "Deleting existing mysql user if present"
+mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from user where User='${ZMESSAGE_DB_USER}'" mysql
+echo "Creating mysql user ${ZMESSAGE_DB_USER}"
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${ZMESSAGE_DB}.* TO ${ZMESSAGE_DB_USER}@localhost IDENTIFIED BY \"${ZMESSAGE_DB_PW}\"" mysql
+
+# Check if database tables are already there
+mysql ${ZMESSAGE_DB} -uroot -p${MYSQL_ROOT_PW} -e "show tables"|grep modems &>/dev/null
+res=$? 
+if [ ! $res -eq 0 ]; then
+# don't exist - database is empty -create it
+echo "CREATING MYSQL DATABASE ${ZMESSAGE_DB}"
+mysqladmin -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} --default-character-set=utf8 create ${ZMESSAGE_DB}
+mysql -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB} < ${WWW_ROOT}/zMessage/scriptsBBDD.sql
+fi
+# already exist - dump them, delete them, and recreate them
+mysqldump -uroot -p${MYSQL_ROOT_PW} -h localhost ${ZMESSAGE_DB} | gzip -9 > /root/${ZMESSAGE_DB}db-`date +%Y.%m.%d.%Hh.%mm`.sql.gz
+mysqladmin  -uroot -p${MYSQL_ROOT_PW} --force drop ${ZMESSAGE_DB}
+mysqladmin --default-character-set=utf8 -uroot -p${MYSQL_ROOT_PW} create ${ZMESSAGE_DB}
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${ZMESSAGE_DB}.* TO ${ZMESSAGE_DB_USER}@localhost IDENTIFIED BY \"${ZMESSAGE_DB_PW}\"" mysql
+mysql -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB} < ${WWW_ROOT}/zMessage/scriptsBBDD.sql
+# debug: show database
+#mysqlshow -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB}
+
+
+#echo "update config set password='${ZMESSAGE_WEB_PW_SHA1}' where login='mark';"|mysql -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB}
+#echo "update config set login='${ZMESSAGE_AMI_USER}' where password='mysecret';"|mysql -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB}
+
+# Change database.conf with ${ZMESSAGE_DB_USER} and ${ZMESSAGE_DB_PW}
+sed -i "s/root/${ZMESSAGE_DB_USER}/g" ${WWW_ROOT}/zMessage/application/config/database.php
+sed -i "s/ESPINETE/${ZMESSAGE_DB_PW}/g" ${WWW_ROOT}/zMessage/application/config/database.php
+sed -i "s/sms/${ZMESSAGE_DB}/g" ${WWW_ROOT}/zMessage/application/config/database.php
+
+# Change AMI user/password
+#TAG:INSERT ${ZMESSAGE_AMI_USER} AND ${ZMESSAGE_AMI_PW} INTO DATABASE
+echo "update config set password='${ZMESSAGE_AMI_PW}' where login='mark';"|mysql -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB}
+echo "update config set login='${ZMESSAGE_AMI_USER}' where password='${ZMESSAGE_AMI_PW}';"|mysql -u${ZMESSAGE_DB_USER} -p${ZMESSAGE_DB_PW} ${ZMESSAGE_DB}
+
+#Add ${ZMESSAGE_AMI_USER} into AMI
+echo "## Adding ${ZMESSAGE_AMI_USER} into AMI ##"
+#Delete paragraphs that contain zmessage in manager_custom.conf
+sed -i -e '/./{H;$!d;}' -i -e 'x;/zmessage/d;' /etc/asterisk/manager_custom.conf
+#Create AMI user
+echo "
+[${ZMESSAGE_AMI_USER}]
+secret = ${ZMESSAGE_AMI_PW}
+deny=0.0.0.0/0.0.0.0
+permit=127.0.0.1/255.255.255.0
+read = system,call,log,verbose,command,agent,user,config,command,dtmf,reporting,cdr,dialplan,originate
+write = system,call,log,verbose,command,agent,user,config,command,dtmf,reporting,cdr,dialplan,originate
+" >> /etc/asterisk/manager_custom.conf
+
+amportal restart
+echo "## AMI Users ##"
+asterisk -rx "manager show users"|grep -v username
+#and add it to the ${ZMESSAGE_DB} mysql database
+
+#TAG:CHANGE PHP CONFIG
+perl -pi -e "s/short_open_tag = Off/short_open_tag = On/g" /etc/php5/apache2/php.ini
+/etc/init.d/apache2 force-reload
+
+# Set proper permissions for init script and for web directory
+chmod +x ${WWW_ROOT}/zMessage/init_script.d
+chown -R asterisk.asterisk ${WWW_ROOT}/zMessage
+
+# Adds deselaxtisados menuitem
+
+PKGNAME="zMessage";
+exists=`sqlite3 /var/www/db/acl.db "select * from acl_resource;"|grep ${PKGNAME}`
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing ${PKGNAME} deselastixados menuitem
+	last_resource=`sqlite3 /var/www/db/acl.db "select * from acl_resource;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	resource_to_use=`expr $last_resource + 1` 
+	last_permission=`sqlite3 /var/www/db/acl.db "select * from acl_group_permission;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	group_permission_to_use=`expr $last_permission + 1` 
+	sqlite3 /var/www/db/menu.db  "insert into menu (id,IdPArent,Link,Name,Type,order_no) values ('${PKGNAME}','System','https://${IP_ADRESS}:10000','${PKGNAME}','framed','44');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_resource (id,name,description) values ('$resource_to_use','${PKGNAME}','${PKGNAME}');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_group_permission (id,id_action,id_group,id_resource) values ('$group_permission_to_use',1,1,'$resource_to_use');" 
+	# Add translations to all lang files
+	for i in `ls -1 /var/www/html/lang/`; do 
+	mv /var/www/html/lang/$i /var/www/html/lang/$i.backup
+	sed '/^\$arrLang=array/a \"${PKGNAME}\" => \"${PKGNAME}\",' /var/www/html/lang/$i.backup > /var/www/html/lang/$i
+	done;
+	rm -rf /var/www/html/lang/*.backup
+else
+echo ${PKGNAME} deselastixados menuitem already installed
+fi
+
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+exit 0

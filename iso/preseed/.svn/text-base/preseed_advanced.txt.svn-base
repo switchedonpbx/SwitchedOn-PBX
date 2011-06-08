@@ -1,0 +1,31 @@
+#     _____         _ _       _              _  ____  _   _   _____  ______   __
+#    / ____|       (_) |     | |            | |/ __ \| \ | | |  __ \|  _ \ \ / /
+#   | (_____      ___| |_ ___| |__   ___  __| | |  | |  \| | | |__) | |_) \ V /.
+#    \___ \ \ /\ / / | __/ __| '_ \ / _ \/ _` | |  | | . ` | |  ___/|  _ < > <..
+#    ____) \ V  V /| | || (__| | | |  __/ (_| | |__| | |\  | | |    | |_) / . \.
+#   |_____/ \_/\_/ |_|\__\___|_| |_|\___|\__,_|\____/|_| \_| |_|    |____/_/ \_\
+#
+#                                                              switchedonpbx.org
+#
+# pressed_advanced.txt - 06/05/2011
+#
+# switched on pbx 1.0.
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2008 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+# Individual additional packages to install
+d-i pkgsel/include string openssh-server vim subversion iftop htop ngrep openssh-server postfix python dos2unix sudo ghostscript expect nmap screen dialog iptraf mtr tcpdump libwww-perl mc openvpn pppoeconf sysstat
+# Whether to upgrade packages after debootstrap.
+# Allowed values: none, safe-upgrade, full-upgrade
+d-i pkgsel/upgrade select safe-upgrade
+
+# Hardware detect: download firmware when needed
+d-i hw-detect/load_firmware boolean true
+
+# Running custom commands during the installation from CD
+#d-i preseed/late_command string cp -ar /cdrom/packages /target/usr/src ; cp -ar /cdrom/apt-key /target/usr/src ; cp -ar cdrom/late_command /target/usr/src ; cp -ar /cdrom/scripts /target/usr/src ; cp -ar /cdrom/programs /target/usr/src ; cp -ar /cdrom/scripts/advanced-install /target/root/install ; chmod +x /target/root/install ; ln -s /root/install /target/etc/rc2.d/S99install ;\
+
+# Running custom commands during the installation from sop svn
+d-i preseed/late_command string wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/scripts/advanced-install; cp advanced-install /target/usr/local/sbin; chmod +x /target/usr/local/sbin/advanced-install; echo "bash /usr/local/sbin/advanced-install" >> /target/etc/bash.bashrc

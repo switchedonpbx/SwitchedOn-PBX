@@ -1,0 +1,249 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# TikiWiki - 12/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+PKGNAME=$0
+WWW_ROOT="/var/www/html"
+TIKIWIKI_DB="${PKGNAME}_db";
+TIKIWIKI_DB_USER="${PKGNAME}_us";
+TIKIWIKI_DB_PW="`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`";
+TIKIWIKI_WEB_USER="${PKGNAME}";
+TIKIWIKI_WEB_PW="`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`";
+
+mkdir -p ${WWW_ROOT}/${PKGNAME}
+
+# The installation directory for ${PKGNAME}
+INSTDIR=${WWW_ROOT}/${PKGNAME}
+
+HTTPDUSER=asterisk
+HTTPDGROUP=asterisk
+############################################ END VARIABLES ###########################################################
+
+export DEBIAN_FRONTEND="noninteractive";
+
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#Check if lampp is already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep lampp &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo Installing lampp
+bash /usr/src/scripts/install-lampp
+else
+echo lampp already installed
+fi
+
+#Delete paragraphs that contain TIKIWIKI in /etc/sop/passwords
+if [ -f /etc/sop/passwords ]; then
+sed -i "/TIKIWIKI/d" /etc/sop/passwords
+. /etc/sop/passwords
+fi
+
+
+#TAG: STORING PASSWORDS INTO /etc/sop/passwords
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+echo "
+#TIKIWIKI PASSWORDS" >> /etc/sop/passwords
+echo "TIKIWIKI_DB=\"${TIKIWIKI_DB}\";" >> /etc/sop/passwords
+echo "TIKIWIKI_DB_USER=\"${TIKIWIKI_DB_USER}\";" >> /etc/sop/passwords
+echo "TIKIWIKI_DB_PW=\"${TIKIWIKI_DB_PW}\";" >> /etc/sop/passwords
+echo "TIKIWIKI_WEB_USER=\"${TIKIWIKI_WEB_USER}\";" >> /etc/sop/passwords
+echo "TIKIWIKI_WEB_PW=\"${TIKIWIKI_WEB_PW}\";" >> /etc/sop/passwords
+
+if [ -d /usr/src/tiki-6.3 ]; then
+rm -rf /usr/src/tiki-6.3
+fi
+cd /usr/src/
+
+
+#cd /usr/src/programs/${PKGNAME}
+#if [ ! -f /usr/src/tiki-6.3.tar.gz ]; then
+#wget http://downloads.sourceforge.net/project/tikiwiki/Tiki%206.x%20-Rigel-/Tiki%206.3/tiki-6.3.tar.gz
+#fi
+#tar xfvz tiki-6.3.tar.gz > /dev/null
+
+# import database db/tiki.sql
+#create db/local.php with the following content
+
+#<?php
+#$db_tiki='mysql';
+#$dbversion_tiki='5.0';
+#$host_tiki='localhost';
+#$user_tiki='my_database_username';
+#$pass_tiki='my_database_secret_password';
+#$dbs_tiki='my_database_name';
+#?>
+
+
+mkdir -p /usr/src/programs/${PKGNAME}
+cd /usr/src/programs/${PKGNAME}
+if [ ! -f ${PKGNAME}.tar.gz ]; then
+wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/programs/${PKGNAME}/${PKGNAME}.tar.gz
+wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/programs/${PKGNAME}/${PKGNAME}_db.sql.gz
+fi
+tar xfvz ${PKGNAME}.tar.gz > /dev/null
+
+echo "Installing ${PKGNAME}"
+
+echo "Backing up old ${PKGNAME}"
+# If instdir exists, backup and delete it
+directory="${INSTDIR}"
+
+# bash check if directory exists
+if [ -d $directory ]; then
+	echo "${INSTDIR} exists, backing up in /root/backups/${PKGNAME}/${PKGNAME}-`date +%Y.%m.%d.%Hh.%mm`.tar.gz"
+	mkdir -p /root/backups/${PKGNAME}/
+#	tar cfvz /root/backups/${PKGNAME}/${PKGNAME}-`date +%Y.%m.%d.%Hh.%mm`.tar.gz $INSTDIR > /dev/null
+	rm -rf $INSTDIR
+else
+	echo "Directory ${INSTDIR} does not exist. Creating it"
+fi
+
+
+# mv tiki-6.3 ${INSTDIR}
+mv var/www/html/${PKGNAME} ${WWW_ROOT}
+
+
+chown -R $HTTPDUSER.$HTTPDGROUP $INSTDIR
+cd $INSTDIR
+chmod -R 777 ./db ./dump ./img/wiki ./img/wiki_up ./img/trackers ./modules/cache ./temp ./temp/cache ./templates_c ./templates ./styles ./whelp/
+cd /usr/src
+
+# CONFIGURE TIKIWIKI VIRTUALHOST
+
+#cat >> /etc/apache2/sites-enabled/000-default << EOF
+#
+#<VirtualHost *:80>
+#    DocumentRoot $INSTDIR
+#    ServerName tikiwiki
+#    ErrorLog logs/${PKGNAME}-error_log
+#    CustomLog logs/${PKGNAME}-access_log common
+#</VirtualHost>
+#EOF
+
+
+# START APACHE
+#/etc/init.d/apache2 restart
+
+
+# IMPORT MYSQL DATABASE
+
+echo "## Creating ${TIKIWIKI_DB} MySQL database ##"
+#TAG:CREATE USER
+echo "Deleting existing mysql user if present"
+mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from user where User='${TIKIWIKI_DB_USER}'" mysql
+echo "Recreating mysql user ${TIKIWIKI_DB_USER}"
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${TIKIWIKI_DB}.* TO ${TIKIWIKI_DB_USER}@localhost IDENTIFIED BY \"${TIKIWIKI_DB_PW}\"" mysql
+
+# Create database, backup old one if exists
+mkdir -p /root/backups/${PKGNAME}
+#mysqldump -uroot -p${MYSQL_ROOT_PW} ${TIKIWIKI_DB} | gzip -9 > /root/backups/${PKGNAME}/${PKGNAME}_db-`date +%Y.%m.%d.%Hh.%mm`.sql.gz
+mysqladmin  -uroot -p${MYSQL_ROOT_PW} --force drop ${TIKIWIKI_DB}
+mysqladmin --default-character-set=utf8 -uroot -p${MYSQL_ROOT_PW} create ${TIKIWIKI_DB}
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${TIKIWIKI_DB}.* TO ${TIKIWIKI_DB_USER}@localhost IDENTIFIED BY \"${TIKIWIKI_DB_PW}\"" mysql
+
+#cd /root/backups/${PKGNAME}
+#for i in `ls -1`; do gunzip $i; done
+#LASTSQL=`ls -1|tail -1`
+#mysql -u${TIKIWIKI_DB_USER} -p${TIKIWIKI_DB_PW} ${TIKIWIKI_DB} < ${LASTSQL}
+#cd ..
+# TikiWiki_63_db.sql.gz  TikiWiki_63.tar.gz
+
+cd /usr/src/programs/${PKGNAME}
+gunzip ${PKGNAME}_db.sql.gz
+mysql -u${TIKIWIKI_DB_USER} -p${TIKIWIKI_DB_PW} ${TIKIWIKI_DB} < ${PKGNAME}_db.sql
+cd ..
+
+# debug: show database
+#mysqlshow -u${TIKIWIKI_DB_USER} -p${TIKIWIKI_DB_PW} ${TIKIWIKI_DB}
+
+#find ${INSTDIR} -exec grep -l ${PKGNAME} {} \;
+
+#Change database settings in local.php
+. /etc/sop/passwords
+sed -i "s/user_tiki='TikiWiki_63_us'/user_tiki='$TIKIWIKI_DB_USER'/g" ${INSTDIR}/db/local.php
+sed -i "s/pass_tiki='tUxa0TPum2fQICeNLxlc'/pass_tiki='$TIKIWIKI_DB_PW'/g" ${INSTDIR}/db/local.php
+sed -i "s/dbs_tiki='TikiWiki_63'/dbs_tiki='$TIKIWIKI_DB'/g" ${INSTDIR}/db/local.php
+
+# Adds deselastixados menuitem
+
+
+# Adds deselastixados menuitem
+
+PKGNAME="TikiWiki_63";
+
+exists=`sqlite3 /var/www/db/acl.db "select * from acl_resource;"|grep ${PKGNAME}`
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing ${PKGNAME} deselastixados menuitem
+	last_resource=`sqlite3 /var/www/db/acl.db "select * from acl_resource;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	resource_to_use=`expr $last_resource + 1` 
+	last_permission=`sqlite3 /var/www/db/acl.db "select * from acl_group_permission;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	group_permission_to_use=`expr $last_permission + 1` 
+	sqlite3 /var/www/db/menu.db  "insert into menu (id,IdPArent,Link,Name,Type,order_no) values ('${PKGNAME}','system','/TikiWiki_63','${PKGNAME}','framed','44');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_resource (id,name,description) values ('$resource_to_use','${PKGNAME}','${PKGNAME}');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_group_permission (id,id_action,id_group,id_resource) values ('$group_permission_to_use',1,1,'$resource_to_use');" 
+	# Add translations to all lang files
+	for i in `ls -1 /var/www/html/lang/`; do 
+	mv /var/www/html/lang/$i /var/www/html/lang/$i.backup
+	sed '/^\$arrLang=array/a \"${PKGNAME}\" => \"${PKGNAME}\",' /var/www/html/lang/$i.backup > /var/www/html/lang/$i
+	done;
+	rm -rf /var/www/html/lang/*.backup
+else
+echo ${PKGNAME} menuitem already installed
+fi
+
+# Change default web admin user
+#TAG:CHANGE ADMIN USER AND PASS FOR ${TIKIWIKI_WEB_USER} AND ${TIKIWIKI_WEB_PW}
+#echo "update users set password='`echo -n ${TIKIWIKI_WEB_PW}|sha1sum|cut -d ' ' -f 1`' where login='admin';"|mysql -u${TIKIWIKI_DB_USER} -p${TIKIWIKI_DB_PW} zPresence
+#echo "update users set login='${TIKIWIKI_WEB_USER}' where password='${TIKIWIKI_WEB_PW_SHA1}';"|mysql -u${TIKIWIKI_DB_USER} -p${TIKIWIKI_DB_PW} zPresence
+
+
+echo "********************************************************************************"
+echo "*"
+echo "*"
+echo "*"
+echo "* Now you can go to http://yourserver/${PKGNAME}  and login with:"
+echo "* username: admin"
+echo "* password: switchedon"
+echo "*"
+echo "* Good wikiing!!"
+echo "*"
+echo "*"
+echo "*"
+echo "*******************************************************************************"
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo ${PKGNAME} >> /etc/sop/sop-addons
+exit 0

@@ -1,0 +1,277 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# iaxmodems - 12/05/2011
+# switched on pbx 1.0
+# Script to install iaxmodem and create a bunch of them in Debian
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)  
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+#####################################################################
+#####################################################################
+if [ "$1" = "advanced" ]; then
+	# Ask user
+	echo "How many iaxmodems do you want to install?"
+	read iaxmodemsnumber
+	echo "First iaxmodem extension number"
+	read firstiaxmodem
+else
+	iaxmodemsnumber=4
+	firstiaxmodem=7001
+fi
+
+#deletes iaxmodems from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/iaxmodems/d" /etc/sop/sop-addons
+fi
+
+PACKAGES="iaxmodem"
+
+#TAG:INSTALLING DEPENDENCIES
+aptitude -y install ${PACKAGES} &>/dev/null
+
+#Check if freepbx is already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo Installing freepbx
+bash /usr/src/scripts/freepbx
+else
+echo freepbx already installed
+fi
+
+#Delete old password
+#sed -i "/IAXMODEM/d" /etc/sop/passwords
+#sed -i "/iaxmodem/d" /etc/sop/passwords
+
+# Read /rood/passwords
+if [ -f /etc/sop/passwords ]; then
+. /etc/sop/passwords
+fi
+
+#PART 1. DELETING EXISTING IAXMODEMS
+
+#DELETING EXISTING IAXMODEMS FROM HYLAFAX AND RELOADING
+
+sed -i "/IAXMODEM/d" /etc/inittab
+sed -i "/iaxmodem/d" /etc/inittab
+sed -i "/faxgetty/d" /etc/inittab
+
+killall iaxmodem &>/dev/null
+killall faxgetty &>/dev/null
+
+rm -rf /etc/iaxmodem/*
+rm -rf /var/spool/hylafax/etc/config.ttyIAX*
+rm -rf /var/spool/hylafax/FIFO.ttyIAX*
+rm -rf /var/log/iaxmodem/*
+
+init q
+update-rc.d iaxmodem defaults &>/dev/null
+/etc/init.d/iaxmodem stop &>/dev/null
+/etc/init.d/iaxmodem start &>/dev/null
+/etc/init.d/hylafax restart &>/dev/null
+
+# Deletes double white spaces and inserts titles in /etc/sop/passwords and /etc/inittab
+#sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+sed -i '/^$/N;/\n$/N;//D' /etc/inittab
+#echo "
+#IAXMODEMS PASSWORDS" >> /etc/sop/passwords
+echo "
+#IAXMODEMS faxgetty PROCESSES" >> /etc/inittab
+
+#echo "action,extension,name,cid_masquerade,sipname,outboundcid,ringtimer,callwaiting,call_screen,pinless,password,noanswer_dest,noanswer_cid,busy_dest,busy_cid,chanunavail_dest,chanunavail_cid,emergency_cid,tech,hardware,devinfo_channel,devinfo_secret,devinfo_notransfer,devinfo_dtmfmode,devinfo_canreinvite,devinfo_context,devinfo_immediate,devinfo_signalling,devinfo_echocancel,devinfo_echocancelwhenbrdiged,devinfo_echotraining,devinfo_busydetect,devinfo_busycount,devinfo_callprogress,devinfo_host,devinfo_type,devinfo_nat,devinfo_port,devinfo_qualify,devinfo_callgroup,devinfo_pickupgroup,devinfo_disallow,devinfo_allow,devinfo_dial,devinfo_accountcode,devinfo_mailbox,devinfo_deny,devinfo_permit,devicetype,deviceid,deviceuser,description,dictenabled,dictformat,dictemail,langcode,record_in,record_out,vm,vmpwd,email,pager,attach,saycid,envelope,delete,options,vmcontext,vmx_state,vmx_unavail_enabled,vmx_busy_enabled,vmx_play_instructions,vmx_option_0_sytem_default,vmx_option_0_number,vmx_option_1_system_default,vmx_option_1_number,vmx_option_2_number,account,ddial,pre_ring,strategy,grptime,grplist,annmsg_id,ringing,grppre,dring,needsconf,remotealert_id,toolate_id,postdest,faxenabled,faxemail" > /root/iaxmodems.csv
+
+#TAG:RECONFIGURING IAXMODEMS
+for ((i=1; i <= $iaxmodemsnumber ; i++)) ; do
+	#Copies config files and modifies them
+	peername=$(expr $i + $firstiaxmodem - 1)
+	port=$(expr $i + 40000)
+	#Generates 20-digit random passwords for each iaxmodem
+	pss=`</dev/urandom tr -dc A-Za-z0-9 | head -c20`
+	password=`echo $pss`
+	cp /usr/share/doc/iaxmodem/examples/iaxmodem-cfg.ttyIAX /etc/iaxmodem/iaxmodem-cfg.ttyIAX$i
+	perl -pi -e "s/300/60/g" /etc/iaxmodem/iaxmodem-cfg.ttyIAX$i
+	perl -pi -e "s!/dev/ttyIAX!/dev/ttyIAX$i!g" /etc/iaxmodem/iaxmodem-cfg.ttyIAX$i
+	perl -pi -e "s!iaxmodem!$peername!g" /etc/iaxmodem/iaxmodem-cfg.ttyIAX$i
+	perl -pi -e "s!password!$password!g" /etc/iaxmodem/iaxmodem-cfg.ttyIAX$i
+	perl -pi -e "s!4570!$port!g" /etc/iaxmodem/iaxmodem-cfg.ttyIAX$i
+	cp /usr/share/doc/iaxmodem/examples/config.ttyIAX /var/spool/hylafax/etc/config.ttyIAX$i
+	sed -i "s!IAXmodem!$peername!g" /var/spool/hylafax/etc/config.ttyIAX$i
+	# add a line to inittab
+#	echo "ix$i:2345:respawn:/usr/bin/iaxmodem iaxmodem-cfg.ttyIAX$i &> /var/log/iaxmodem/iaxmodem-ttyIAX$i" >> /etc/inittab
+	# Stores passwords in /etc/sop/passwords
+	#Remove old iaxmodem passwords
+	sed -i "/iaxmodem$i/d" /etc/sop/passwords
+	sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+	#delete existing iax2 extension in mysql
+	mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from \`iax\` where id='$peername'" asterisk
+	mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from \`devices\` where id='$peername'" asterisk
+	mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from \`users\` where extension='$peername'" asterisk
+	#insert iaxmodem into freepbx
+	mysql -uroot -p${MYSQL_ROOT_PW} -e "insert into \`iax\` values ('$peername','secret','$password',2),('$peername','transfer','yes',3),('$peername','context','from-internal',4),('$peername','host','dynamic',5),('$peername','type','friend',6),('$peername','port','$port',7),('$peername','qualify','yes',8),('$peername','disallow','',9),('$peername','allow','',10),('$peername','dial','IAX2/$peername',11),('$peername','accountcode','',12),('$peername','mailbox','$peername@device',13),('$peername','deny','0.0.0.0/0.0.0.0',14),('$peername','permit','0.0.0.0/0.0.0.0',15),('$peername','requirecalltoken','no',16),('$peername','account','$peername',17),('$peername','callerid','device <$peername>',18),('$peername','setvar','REALCALLERIDNUM=$peername',19),('$peername','record_in','Adhoc',20),('$peername','record_out','Adhoc',21);" asterisk
+	mysql -uroot -p${MYSQL_ROOT_PW} -e "INSERT INTO \`users\` VALUES ('$peername','','ttyIAX$i','novm',0,'','out=Adhoc|in=Adhoc','','','','','','','','','default');" asterisk
+	mysql -uroot -p${MYSQL_ROOT_PW} -e "INSERT INTO \`devices\` VALUES ('$peername','iax2','IAX2/$peername','fixed','$peername','ttyIAX$i','');" asterisk
+#	echo "#iaxmodem$i ttyIAX$i $peername $password" >> /etc/sop/passwords
+#	echo "edit,$peername,$peername,$peername,,,0,enabled,0,disabled,,,,,,,,,iax2,,,$password,,,,from-internal,,,,,,,,,dynamic,friend,,$port,yes,,,,,IAX2/$peername,,$peername@device,0.0.0.0/0.0.0.0,0.0.0.0/0.0.0.0,fixed,,$peername,$peername,disabled,ogg,,,Never,Never,disabled,,,,attach=no,saycid=no,envelope=no,delete=no,,,,,,checked,checked,,,,,,,,,,,,,,,,,,,," >> iaxmodems.csv
+
+	#insert into astdb
+	asterisk -rx "database delete AMPUSER $peername" >/dev/null
+	asterisk -rx "database delete CW $peername" >/dev/null
+	asterisk -rx "database delete DEVICE $peername" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/answermode disabled" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_alert_info \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_cid_prepend \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_agent_dialstring  extension" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_agent_policy generic" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_max_agents 5" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_max_monitors 5" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_monitor_alert_info \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_monitor_cid_prepend \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_monitor_policy generic" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_offer_timer 30" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_recall_timer 15" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_ccbs_available_timer 4800" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ccss/cc_ccnr_available_timer 7200" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/cfringtimer 0" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/cidname $peername" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/cidnum \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/concurrency_limit 0" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/device $peername" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/language \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/noanswer \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/outboundcid \"\"" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/password $password" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/queues/qnostate usestate" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/recording out=Adhoc|in=Adhoc" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/ringtimer 0" >/dev/null
+	asterisk -rx "database put AMPUSER $peername/voicemail novm" >/dev/null
+	asterisk -rx "database put CW $peername ENABLED" >/dev/null
+	asterisk -rx "database put DEVICE $peername/default_user $peername" >/dev/null
+	asterisk -rx "database put DEVICE $peername/dial IAX2/$peername" >/dev/null
+	asterisk -rx "database put DEVICE $peername/type fixed" >/dev/null
+	asterisk -rx "database put DEVICE $peername/user $peername" >/dev/null
+done
+
+#TAG:CHANGING FREEPBX CONFIGURATION
+mysql -uroot -p${MYSQL_ROOT_PW} -e "UPDATE \`asterisk\`.\`featurecodes\` SET \`enabled\` =  '1' WHERE CONVERT( \`featurecodes\`.\`modulename\` USING utf8 ) = 'core' AND CONVERT( \`featurecodes\`.\`featurename\` USING utf8 ) =  'chanspy' LIMIT 1"
+
+#TAG:CREATING FAXGETTY PROCESSES IN INITTAB
+for ((i=1; i <= $iaxmodemsnumber ; i++)) ; do
+		echo "fx$i:2345:respawn:/usr/sbin/faxgetty ttyIAX$i" >> /etc/inittab
+done
+
+#TAG:RELOADING INIT PROCESSES
+init q &>/dev/null
+update-rc.d iaxmodem defaults &>/dev/null
+
+#TAG:RELOADING IAXMODEM
+/etc/init.d/iaxmodem stop &>/dev/null
+/etc/init.d/iaxmodem start &>/dev/null
+
+#SET calltokenoptional to 127.0.0.1
+cat /etc/asterisk/iax_general_custom.conf |grep calltokenoptional &>/dev/null
+if [ $? -eq 0 ]; then
+	echo "calltokenoptional for iamodems extensions already added to iax_general_custom.conf"
+else
+	echo "Adding calltokenoptional for iamodems extensions to iax_general_custom.conf"
+	echo "calltokenoptional=127.0.0.1" >> /etc/asterisk/iax_general_custom.conf
+fi
+
+#TAG:CONFIGURING IAXMODEMS FOR AVANTFAX
+cat /etc/sop/sop-addons|grep AvantFAX &>/dev/null
+res=$?
+if [ $res -eq 0 ]; then
+	echo AvantFAX already installed. Configuring iaxmodems
+	. /etc/sop/passwords
+
+	# CONFIGURE MODEMS TO USE AVANTFAX
+
+	for i in `ls /var/spool/hylafax/etc/config.*`; do
+	if [ "$i" != "/var/spool/hylafax/etc/config.sav" ]; then
+	  if [ "$i" != "/var/spool/hylafax/etc/config.devid" ]; then
+	    tilde=`echo $i | grep '~'`
+	    if [ "$?" -eq "1" ]; then
+	      if [ ! -L $i ]; then
+cat >> $i << EOF
+#
+## AvantFAX
+#
+FaxRcvdCmd:     bin/faxrcvd.php
+DynamicConfig:  bin/dynconf.php
+UseJobTSI:      true
+
+EOF
+	      fi
+	    fi
+	  fi
+	fi
+	done
+
+cat >>  /var/spool/hylafax/etc/config << EOF
+
+#
+## AvantFAX
+#
+NotifyCmd:      bin/notify.php
+
+EOF
+
+	# ADD MODEMS TO DATABASE
+
+	for i in `ls /var/spool/hylafax/etc/config.*`; do
+	if [ "$i" != "/var/spool/hylafax/etc/config.sav" ]; then
+	  if [ "$i" != "/var/spool/hylafax/etc/config.devid" ]; then
+	    tilde=`echo $i | grep '~'`
+	    if [ "$?" -eq "1" ]; then
+	      if [ -f $i ]; then
+		modem=`echo $i | awk -F'/' '{print $6}' | awk -F'.' '{print $2}'`
+
+		# ADD MODEMS TO AVANTFAX DATABASE
+		mysql -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} -e "DELETE FROM Modems WHERE device='$modem'" ${AVANTFAX_DB}
+		mysql -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} -e "INSERT INTO Modems SET device='$modem', alias ='$modem'" ${AVANTFAX_DB}
+		echo "Configuring $modem for AvantFAX"
+	      fi
+	    fi
+	  fi
+	fi
+	done
+fi
+
+#TAG:RELOADING HYLAFAX
+/etc/init.d/hylafax restart &>/dev/null
+
+#TAG:RELOADING IAX2
+/var/lib/asterisk/bin/retrieve_conf &>/dev/null
+asterisk -rx "iax2 reload" &>/dev/null
+/var/lib/asterisk/bin/module_admin reload &>/dev/null
+amportal restart
+
+
+#adds iaxmodems to /etc/sop/sop-addons
+echo "iaxmodems" >> /etc/sop/sop-addons
+
+#TAG:END
+exit 0

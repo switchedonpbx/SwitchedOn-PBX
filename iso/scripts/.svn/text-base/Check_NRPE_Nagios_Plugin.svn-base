@@ -1,0 +1,80 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# nrpe - 15/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+HELPINGWORDS="";
+
+PKGNAME=nrpe
+
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+
+PACKAGES="xinetd openssl ssl-cert libssl-dev checkinstall";
+
+apt-get -y install ${PACKAGES}
+cd /usr/src
+wget http://downloads.sourceforge.net/project/nagiosplug/nagiosplug/1.4.15/nagios-plugins-1.4.15.tar.gz
+tar -xzvf nagios-plugins-1.4.15.tar.gz
+cd nagios-plugins-1.4.15
+./configure
+make
+mkdir -p /usr/src/debs
+sudo checkinstall -D --pkgname=nagios-plugins --fstrans=no --pakdir "/usr/src/debs" \
+--maintainer "$USER" --pkgversion "1.4.15" --backup=no \
+--deldoc=yes --deldesc=yes --delspec=yes --default
+/usr/sbin/useradd -m nagios
+echo "nagios:nagios_pw" | chpasswd
+/usr/sbin/groupadd nagcmd
+/usr/sbin/usermod -a -G nagcmd nagios
+/usr/sbin/usermod -a -G nagcmd asterisk
+chown nagios:nagcmd /usr/local/nagios
+chown -R nagios:nagcmd /usr/local/nagios/libexec/
+cd /usr/src
+wget http://freefr.dl.sourceforge.net/sourceforge/nagios/nrpe-2.12.tar.gz
+tar -xzvf nrpe-2.12.tar.gz
+cd nrpe-2.12
+./configure
+make all
+make install-plugin
+make install-daemon
+make install-daemon-config
+make install-xinetd
+echo 'nrpe     5666/tcp     # NRPE' >> /etc/services 
+service xinetd restart
+netstat -at | grep nrpe
+/usr/local/nagios/libexec/check_nrpe -H localhost
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+exit 0

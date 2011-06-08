@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# chan_dongle - 15/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+HELPINGWORDS="";
+
+PACKAGES="checkinstall";
+
+PKGNAME=chan_dongle
+
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#Check if asterisk is installed. Otherwise install it
+cat /etc/sop/sop-addons|grep asterisk-18-debs &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Asterisk is not installed from debs
+	#Check if asterisk is installed. Otherwise install it
+	cat /etc/sop/sop-addons|grep asterisk-18-sources &>/dev/null
+	res=$?
+	if [ ! $res -eq 0 ]; then
+		echo Asterisk is not installed from sources nor debs, installing it from debs
+		bash /usr/src/scripts/asterisk-18-debs
+	else
+		echo Asterisk already installed from sources
+	fi
+else
+		echo Asterisk already installed from debs, downloading sources
+		apt-get -y source asterisk
+		apt-get -y build-dep asterisk
+
+fi
+
+cd /usr/src
+aptitude -y install ${PACKAGES}
+
+
+
+
+
+#TAG:DOWNLOADING SOURCES
+
+cd /usr/src
+svn export http://asterisk-chan-dongle.googlecode.com/svn/trunk/ asterisk-chan-dongle-read-only
+cd asterisk-chan-dongle-read-only
+aclocal
+autoconf
+automake -a
+./configure
+make
+mkdir -p /usr/src/debs
+sudo checkinstall -D --pkgname=asterisk-chan-dongle --fstrans=no --pakdir "/usr/src/debs" \
+--maintainer "$USER" --pkgversion "svn-`date +%Y.%m.%d.%Hh.%mm`" --backup=no \
+--deldoc=yes --deldesc=yes --delspec=yes --default
+
+cp etc/d* /etc/asterisk/dongle.conf
+chown asterisk.asterisk /etc/asterisk/dongle.conf
+# Fix permissions of /dev/ttyUSB* and assign udev rules to make them permanent
+chmod 660 /dev/ttyUSB*
+chown asterisk:uucp /dev/ttyUSB*
+#echo 'KERNEL=="ttyUSB[0-9*]", MODE="0660", OWNER="asterisk", GROUP="uucp"'  >  /etc/udev/rules.d/92-dongle.rules 
+echo 'SYSFS{idVendor}=="12d1", MODE="0660", OWNER="asterisk", GROUP="uucp"'  >  /etc/udev/rules.d/92-dongle.rules 
+asterisk -rx "module load chan_dongle.so"
+/etc/init.d/asterisk restart
+
+chmod 660 /dev/ttyUSB*
+chown asterisk:uucp /dev/ttyUSB*
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+
+#dongle/0:IMEI/$OUTNUM$ 
+
+#Custom trunk in freepbx: dongle/dongle0/$OUTNUM$
+#Create 1 trunk with mysql inserts would be nice!! Or one trunk for each detected dongle (after discover is working) would be superb

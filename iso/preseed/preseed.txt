@@ -1,0 +1,126 @@
+#!/bin/bash
+#     _____         _ _       _              _  ____  _   _   _____  ______   __
+#    / ____|       (_) |     | |            | |/ __ \| \ | | |  __ \|  _ \ \ / /
+#   | (_____      ___| |_ ___| |__   ___  __| | |  | |  \| | | |__) | |_) \ V / 
+#    \___ \ \ /\ / / | __/ __| '_ \ / _ \/ _` | |  | | . ` | |  ___/|  _ < > <  
+#    ____) \ V  V /| | || (__| | | |  __/ (_| | |__| | |\  | | |    | |_) / . \ 
+#   |_____/ \_/\_/ |_|\__\___|_| |_|\___|\__,_|\____/|_| \_| |_|    |____/_/ \_\
+#
+#                              		                        switchedonpbx.org
+#
+# preseed.txt - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)  
+# This script is licensed under GNU GPL version 2.0
+# url: http://fd.idv.tw/d-i/squeeze/preseed.cfg
+
+# Contents of the preconfiguration file (for squeeze)
+debconf debconf/priority string critical
+unknown debconf/priority string critical
+
+# Localization
+#d-i debian-installer/locale string es_ES
+
+# Keyboard selection
+#d-i console-keymaps-at/keymap select es
+
+# Network configuration
+d-i netcfg/choose_interface select auto
+d-i netcfg/dhcp_timeout string 60
+d-i netcfg/dhcp_failed note
+d-i netcfg/dhcp_options select Configure network manually
+d-i netcfg/get_hostname string pbx
+d-i netcfg/get_domain string switchedonpbx.org
+
+# Network console
+# Use the following settings if you wish to make use of the network-console
+# component for remote installation over SSH. This only makes sense if you
+# intend to perform the remainder of the installation manually.
+#d-i anna/choose_modules string network-console
+#d-i network-console/password password r00tme
+#d-i network-console/password-again password r00tme
+
+# Mirror settings
+d-i mirror/country string manual
+d-i mirror/http/hostname string ftp.de.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+
+# Clock and time zone setup
+d-i clock-setup/utc boolean true
+d-i time/zone string US/Eastern
+d-i clock-setup/ntp boolean true
+d-i clock-setup/ntp-server string 200.57.188.17
+
+
+## Suggested hard coded partions to be more flexible later, 
+## should work on anything larger than 8G drives
+## d-i partman-auto/disk string /dev/sda
+### d-i partman/early_command string debconf-set partman-auto/disk "$(list-devices disk | grep -v `mount|grep hd-media|cut -d " " -f1`|head -n1)"
+## d-i partman-auto/method string regular
+## d-i partman/mount_style select uuid
+## d-i partman-auto/expert_recipe string root-state :: \
+## 10000 1000000000 1000000000 ext3 $primary{ } $bootable{ } method{ format } format{ } use_filesystem{ } filesystem{ ext3 }  mountpoint{ / } . \
+## 150% 150% 150% linux-swap $primary{ } method{ swap } format{ } . \
+## 3000 3000 3000 ext3 $primary{ } method{ format } format{ } use_filesystem{ } filesystem{ ext3 } mountpoint{ /state }  .
+## d-i partman-partitioning/confirm_write_new_label boolean true
+## d-i partman/choose_partition select finish
+## d-i partman/confirm boolean true
+## d-i partman/confirm_nooverwrite boolean true
+
+
+
+
+# Partitioning
+d-i partman-auto/disk string /dev/sda
+d-i partman-auto/method string regular
+d-i partman-auto/choose_recipe select atomic
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# Account setup
+d-i passwd/make-user boolean false
+
+# Root password
+d-i passwd/root-password password sop
+d-i passwd/root-password-again password sop
+
+# Apt setup
+#d-i apt-setup/non-free boolean true
+#d-i apt-setup/contrib boolean true
+#d-i apt-setup/use_mirror boolean false
+#d-i debian-installer/allow_unauthenticated string true
+
+# Package selection
+tasksel tasksel/first multiselect standard
+d-i pkgsel/include string openssh-server postfix subversion dos2unix
+
+# Upgrade
+d-i pkgsel/upgrade select full-upgrade
+popularity-contest popularity-contest/participate boolean false
+
+# Hardware detect: download firmware when needed
+d-i hw-detect/load_firmware boolean true
+
+# Boot loader installation changes suggested by dicko uncomment to fix :)
+#d-i grub-installer/only_debian boolean false
+#d-i grub-installer/with_other_os boolean false
+#d-i grub-installer/bootdev string (hd0)
+
+
+# Boot loader installation
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+d-i finish-install/reboot_in_progress note
+#d-i cdrom-detect/eject boolean false
+
+# Running custom commands during the installation from CD
+#d-i preseed/late_command string cp -ar /cdrom/packages /target/usr/src ; cp -ar /cdrom/apt-key /target/usr/src ; cp -ar cdrom/late_command /target/usr/src ; cp -ar /cdrom/scripts /target/usr/src ; cp -ar /cdrom/programs /target/usr/src ; cp -ar /cdrom/scripts/unattended-install /target/root/install ; chmod +x /target/root/install ; ln -s /root/install /target/etc/rc2.d/S99install ;\
+
+# Running custom commands during the installation from SVN
+d-i preseed/late_command string wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/scripts/unattended-install ;  cp unattended-install /target/usr/local/sbin/unattended-install ; chmod +x /target/usr/local/sbin/unattended-install ; echo "/usr/local/sbin/unattended-install" > /target/etc/rc.local ; echo "exit 0" >> /target/etc/rc.local

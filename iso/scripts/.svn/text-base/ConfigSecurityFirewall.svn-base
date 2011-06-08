@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# ConfigSecurityFirewall - 12/05/2011
+#
+# switched on pbx-1.0
+# Author: dicko
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+HELPINGWORDS="";
+
+PKGNAME=$0
+
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+
+#cd /usr/src/
+#if [ ! -f csf.tgz ];then
+	wget http://www.configserver.com/free/csf.tgz
+	tar zxfv csf.tgz  
+#1>/dev/null
+#fi
+
+
+cd csf/
+./install.sh 
+cp /usr/src/programs/csf.pignore /etc/csf/
+csf -r
+
+
+if [ -f /usr/share/webmin/install-module.pl ];then
+	echo Installing Webmin module
+	/usr/share/webmin/install-module.pl /etc/csf/csfwebmin.tgz /etc/webmin
+else
+	echo Webmin not installed
+fi
+
+
+
+#copy the base config from /usr/src/wherever it is
+rm /usr/local/sbin/csf
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+exit 0
+

@@ -1,0 +1,53 @@
+###############################################################################
+# Copyright 2006-2010, Way to the Web Limited
+# URL: http://www.configserver.com
+# Email: sales@waytotheweb.com
+###############################################################################
+# The following is a list of executables (exe) command lines (cmd) and
+# usernames (user) that lfd process tracking will ignore.
+#
+# You must use the following format:
+#
+# exe:/full/path/to/file
+# user:username
+# cmd:command line
+#
+# It is strongly recommended that you use command line ignores very carefully
+# as any process can change what is reported to the OS.
+#
+# For more information see readme.txt
+#------------------------------------------------------
+# these lines are gleaned from csf whinings after SOP is installed, I'm sure it will grow
+# dicko
+
+user:asterisk
+#user:ntp
+#user:dbus
+#user:smmsp
+user:postfix
+exe:/usr/sbin/faxgetty
+exe:/usr/sbin/hfaxd
+exe:/usr/bin/iaxmodem
+exe:/usr/lib/postfix/pickup
+exe:/usr/lib/postfix/*
+exe:/usr/lib/postfix/qmgr
+exe:/usr/lib/postfix/pickup
+exe:/usr/lib/postfix/cleanup
+exe:/usr/lib/postfix/trivial-rewrite
+exe:/usr/lib/postfix/local
+exe:/usr/lib/postfix/smtp
+exe:/usr/lib/postfix/scache 
+exe:/usr/lib/postfix/bounce
+exe:/usr/sbin/astcanary
+exe:/usr/bin/dbus-daemon
+exe:/usr/sbin/faxq
+exe:/usr/sbin/hald
+exe:/usr/lib/apache2/mpm-prefork/apache2
+exe:/sbin/portmap
+exe:/usr/sbin/mysqld
+exe:/usr/sbin/asterisk
+cmd:/usr/sbin/faxgetty
+cmd:/usr/sbin/apache2
+cmd:/usr/bin/perl /var/www/html/panel/op_server.pl
+cmd:/usr/sbin/asterisk -p -U asterisk
+

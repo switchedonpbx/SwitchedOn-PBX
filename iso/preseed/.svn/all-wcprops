@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svnroot/switchedonpbx/!svn/ver/585/iso/preseed
+END
+preseed_remote.txt
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/switchedonpbx/!svn/ver/464/iso/preseed/preseed_remote.txt
+END
+preseed.txt
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/575/iso/preseed/preseed.txt
+END
+preseed_advanced.txt
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svnroot/switchedonpbx/!svn/ver/525/iso/preseed/preseed_advanced.txt
+END
+preseed_ha.txt
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svnroot/switchedonpbx/!svn/ver/585/iso/preseed/preseed_ha.txt
+END

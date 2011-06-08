@@ -1,0 +1,32 @@
+#!/bin/sh
+
+KEY="$HOME/.ssh/id_dsa.pub"
+
+if [ ! -f ~/.ssh/id_dsa.pub ];then
+    echo "private key not found at $KEY"
+    echo 'please create it with "ssh-keygen -t dsa" '
+    echo "to login to the remote host without a password, don't give the key you create with ssh-keygen a passphrase! *"
+    exit
+fi
+
+if [ -z $1 ];then
+    echo "Please specify user@host.tld as the first switch to this script and port as second switch "
+    echo
+    echo "$0 root@123.123.123.123 22 for example"
+    echo
+    echo "or:"
+    echo
+    echo "$0 user@mydnsdomain.org"
+    exit
+fi
+
+echo "Putting your key on $1... "
+
+KEYCODE=`cat $KEY`
+ssh -p $2   -q $1 "mkdir ~/.ssh 2>/dev/null; chmod 700 ~/.ssh; echo "$KEYCODE" >> ~/.ssh/authorized_keys; chmod 644 ~/.ssh/authorized_keys"
+
+echo "done!  You should now be able to :-"
+echo "ssh -p <port> root@<your_server>"
+echo "If you use port=22 then A) you won't need the -p 22 BUT, B) you shouldn't be doing that in the first place !!"
+ 
+

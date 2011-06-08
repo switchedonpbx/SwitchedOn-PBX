@@ -1,0 +1,203 @@
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svnroot/switchedonpbx/!svn/ver/676/iso/scripts
+END
+migrate-from-oldFreePBX
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svnroot/switchedonpbx/!svn/ver/672/iso/scripts/migrate-from-oldFreePBX
+END
+ConfigSecurityFirewall
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svnroot/switchedonpbx/!svn/ver/625/iso/scripts/ConfigSecurityFirewall
+END
+voipmonitor
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/496/iso/scripts/voipmonitor
+END
+freepbx-ver
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/665/iso/scripts/freepbx-ver
+END
+freepbx
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/670/iso/scripts/freepbx
+END
+unattended-install
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/switchedonpbx/!svn/ver/667/iso/scripts/unattended-install
+END
+A2Billing
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svnroot/switchedonpbx/!svn/ver/528/iso/scripts/A2Billing
+END
+unattendedHA-install
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svnroot/switchedonpbx/!svn/ver/667/iso/scripts/unattendedHA-install
+END
+Mondoarchive
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/496/iso/scripts/Mondoarchive
+END
+zMessage
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/switchedonpbx/!svn/ver/520/iso/scripts/zMessage
+END
+install-drbd
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/496/iso/scripts/install-drbd
+END
+Check_NRPE_Nagios_Plugin
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svnroot/switchedonpbx/!svn/ver/509/iso/scripts/Check_NRPE_Nagios_Plugin
+END
+Webmin
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svnroot/switchedonpbx/!svn/ver/528/iso/scripts/Webmin
+END
+asterisk-16-debs
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svnroot/switchedonpbx/!svn/ver/673/iso/scripts/asterisk-16-debs
+END
+asterisk-18-debs
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svnroot/switchedonpbx/!svn/ver/628/iso/scripts/asterisk-18-debs
+END
+asterisk-14-sources
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/switchedonpbx/!svn/ver/676/iso/scripts/asterisk-14-sources
+END
+install-iaxmodems
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svnroot/switchedonpbx/!svn/ver/543/iso/scripts/install-iaxmodems
+END
+common-install
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svnroot/switchedonpbx/!svn/ver/666/iso/scripts/common-install
+END
+LXDE
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svnroot/switchedonpbx/!svn/ver/521/iso/scripts/LXDE
+END
+TikiWiki_63
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/528/iso/scripts/TikiWiki_63
+END
+asterisk-18-sources
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/switchedonpbx/!svn/ver/620/iso/scripts/asterisk-18-sources
+END
+Blink
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svnroot/switchedonpbx/!svn/ver/496/iso/scripts/Blink
+END
+chan_dongle
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/496/iso/scripts/chan_dongle
+END
+RKHunter
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/switchedonpbx/!svn/ver/507/iso/scripts/RKHunter
+END
+fop2
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svnroot/switchedonpbx/!svn/ver/528/iso/scripts/fop2
+END
+ProxmoxVE
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svnroot/switchedonpbx/!svn/ver/516/iso/scripts/ProxmoxVE
+END
+xchangekeys
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/653/iso/scripts/xchangekeys
+END
+asterisk-18-sources-arm
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svnroot/switchedonpbx/!svn/ver/529/iso/scripts/asterisk-18-sources-arm
+END
+advanced-install
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svnroot/switchedonpbx/!svn/ver/667/iso/scripts/advanced-install
+END
+deselastixados
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svnroot/switchedonpbx/!svn/ver/528/iso/scripts/deselastixados
+END
+install-lampp
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/675/iso/scripts/install-lampp
+END
+fail2ban
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/switchedonpbx/!svn/ver/496/iso/scripts/fail2ban
+END
+AvantFAX-333
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/626/iso/scripts/AvantFAX-333
+END

@@ -1,0 +1,103 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# By Ramon Lozano <ramon@solidpc.net>
+# Installs webmin
+############################################### WEBMIN  ######################################################
+
+HELPINGWORDS="Webmin is a web-based interface for system administration for Unix. Using any modern web browser, you can setup user accounts, Apache, DNS, file sharing and much more."
+
+
+PKGNAME=$0
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+PACKAGES="apt-show-versions libapt-pkg-perl libauthen-pam-perl libio-pty-perl libnet-ssleay-perl";
+apt-get -y install ${PACKAGES}
+
+cd /usr/src/
+# wget http://sourceforge.net/projects/webadmin/files/webmin/1.510/webmin-1.510-1.noarch.rpm/download
+wget http://prdownloads.sourceforge.net/webadmin/webmin_1.550_all.deb
+dpkg -i webmin*
+apt-get -y -f install
+if [ ! -d /usr/src/debs ]; then
+	mkdir /usr/src/debs
+fi
+mv *.deb /usr/src/debs
+
+# Install some usefull modules
+/usr/share/webmin/install-module.pl /etc/csf/csfwebmin.tgz /etc/webmin
+wget http://www.tecchio.net/webmin/hylafax/hylafax_mod-1.9.wbm.gz
+/usr/share/webmin/install-module.pl hylafax_mod-1.9.wbm.gz /etc/webmin
+wget http://www.openit.it/downloads/OpenVPNadmin/openvpn-2.5.wbm.gz
+/usr/share/webmin/install-module.pl openvpn-2.5.wbm.gz /etc/webmin
+
+if [ -d /etc/csf ]; then
+	/usr/share/webmin/install-module.pl /etc/csf/csfwebmin.tgz /etc/webmin
+fi
+
+#wget http://www.webmin.com/webmin/download/modules/bacula-backup.wbm.gz
+#/usr/share/webmin/install-module.pl bacula-backup.wbm.gz /etc/webmin
+#wget http://www.webmin.com/download/modules/bacula-restore.wbm.gz
+#/usr/share/webmin/install-module.pl bacula-restore.wbm.gz /etc/webmin
+
+
+
+# Adds deselastixados menuitem
+
+#INTERFACE & IP_ADRESS
+INTERFACE_TMP=`ip ro|grep default| awk '{ print $5}'`
+if [ $INTERFACE_TMP == "venet0" ]  ; then
+INTERFACE="$INTERFACE_TMP:0";
+fi
+INTERFACE=$INTERFACE_TMP
+IP_ADRESS=`ifconfig $INTERFACE | grep 'inet addr:' | cut -d: -f2 | awk '{ print \$1}'`;
+
+PKGNAME="Webmin";
+exists=`sqlite3 /var/www/db/acl.db "select * from acl_resource;"|grep ${PKGNAME}`
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing ${PKGNAME} deselastixados menuitem
+	last_resource=`sqlite3 /var/www/db/acl.db "select * from acl_resource;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	resource_to_use=`expr $last_resource + 1` 
+	last_permission=`sqlite3 /var/www/db/acl.db "select * from acl_group_permission;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	group_permission_to_use=`expr $last_permission + 1` 
+	sqlite3 /var/www/db/menu.db  "insert into menu (id,IdPArent,Link,Name,Type,order_no) values ('${PKGNAME}','System','https://${IP_ADRESS}:10000','${PKGNAME}','framed','44');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_resource (id,name,description) values ('$resource_to_use','${PKGNAME}','${PKGNAME}');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_group_permission (id,id_action,id_group,id_resource) values ('$group_permission_to_use',1,1,'$resource_to_use');" 
+	# Add translations to all lang files
+	for i in `ls -1 /var/www/html/lang/`; do 
+	mv /var/www/html/lang/$i /var/www/html/lang/$i.backup
+	sed '/^\$arrLang=array/a \"${PKGNAME}\" => \"${PKGNAME}\",' /var/www/html/lang/$i.backup > /var/www/html/lang/$i
+	done;
+	rm -rf /var/www/html/lang/*.backup
+else
+echo ${PKGNAME} deselastixados menuitem already installed
+fi
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+exit 0

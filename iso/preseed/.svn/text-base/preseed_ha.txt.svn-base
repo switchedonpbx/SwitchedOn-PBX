@@ -1,0 +1,100 @@
+#     _____         _ _       _              _  ____  _   _   _____  ______   _
+#    / ____|       (_) |     | |            | |/ __ \| \ | | |  __ \|  _ \ \ / /
+#   | (_____      ___| |_ ___| |__   ___  __| | |  | |  \| | | |__) | |_) \ V / 
+#    \___ \ \ /\ / / | __/ __| '_ \ / _ \/ _` | |  | | . ` | |  ___/|  _ < > <  
+#    ____) \ V  V /| | || (__| | | |  __/ (_| | |__| | |\  | | |    | |_) / . \ 
+#   |_____/ \_/\_/ |_|\__\___|_| |_|\___|\__,_|\____/|_| \_| |_|    |____/_/ \_\
+#
+#                              		                        switchedonpbx.org
+#
+# pressed_ha.cfg - 20110530
+#
+# SwitchedONPBX-1.0 
+# Author: dicko
+# This script is licensed under GNU GPL version 2.0
+#-------------------------------------------------------------------------------
+# This preseed file will automatically install a working Asterisk/FreePBX 
+# system. Ideally, you will need a working DHCP server.
+# Please change the kernel options to setup your locale.
+# It will use the first hard drive presented by your bios
+# This hard drive WILL be overwritten!!
+
+# Contents of the preconfiguration file (for squeeze)
+debconf debconf/priority string critical
+unknown debconf/priority string critical
+
+# Network configuration
+d-i netcfg/choose_interface select auto
+d-i netcfg/dhcp_timeout string 60
+d-i netcfg/dhcp_failed note
+d-i netcfg/dhcp_options select Configure network manually
+d-i netcfg/get_hostname string pbx
+d-i netcfg/get_domain string switchedonpbx.org
+
+
+# Mirror settings
+d-i mirror/country string manual
+d-i mirror/http/hostname string ftp.us.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+
+# Clock and time zone setup
+d-i clock-setup/utc boolean true
+d-i clock-setup/ntp boolean true
+d-i clock-setup/ntp-server string 0.pool.ntp.org
+
+# Partitioning
+#d-i partman/early_command string debconf-set partman-auto/disk "$(list-devices disk | grep -v `mount|grep hd-media|cut -d " " -f1`|head -n1)"
+d-i partman-auto/disk string /dev/sda
+d-i partman-auto/method string regular
+d-i partman/mount_style select uuid
+d-i partman-auto/expert_recipe string root-state :: \
+10000 1000000000 1000000000 ext3 $primary{ } $bootable{ } method{ format } format{ } use_filesystem{ } filesystem{ ext3 }  mountpoint{ / } . \
+150% 150% 150% linux-swap $primary{ } method{ swap } format{ } . \
+3000 3000 3000  ext3 $primary{ } method{ format } format{ } use_filesystem{ } filesystem{ ext3 } mountpoint{ /state }  .
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+#"$(expr $(cat /proc/partitions |grep sdb$|awk '{print $3}') / 2048)" "$(expr $(cat /proc/partitions |grep sdb$|awk '{print $3}') / 2048)" "$(expr $(cat /proc/partitions |grep sdb$|awk '{print $3}') / 2048)" ext3 $primary{ } method { format } format{ } use_filesystem{ } filesystem{ ext3 } mountpoint{ /state }  .
+
+
+
+# To create a normal user account.
+d-i passwd/make-user boolean false
+
+# Root password
+d-i passwd/root-password password sop
+d-i passwd/root-password-again password sop
+
+# Apt setup
+d-i apt-setup/non-free boolean true
+d-i apt-setup/contrib boolean true
+d-i debian-installer/allow_unauthenticated string true
+
+# Package selection
+tasksel tasksel/first multiselect standard
+d-i pkgsel/include string openssh-server subversion dos2unix sudo dialog mdadm rsync mc debconf-utils flex vlan
+d-i pkgsel/upgrade select full-upgrade
+
+popularity-contest popularity-contest/participate boolean false
+
+
+# Boot loader installation
+d-i grub-installer/only_debian boolean false
+d-i grub-installer/with_other_os boolean false
+d-i grub-installer/bootdev string /dev/sda
+
+
+d-i finish-install/reboot_in_progress note
+
+# Advanced options
+# Running custom commands during the installation
+
+d-i preseed/late_command string cp /cdrom/payload/ha.sh /target/root/; echo -e "sh /root/ha.sh\nexit 0\n" > /target/etc/rc.local
+
+
+
+
+

@@ -1,0 +1,447 @@
+#!/bin/bash
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888
+#  Y88b.                        888            888                    888 888     888 88888b  888
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888
+#
+#
+#                                8888888b.  888888b.  Y88b   d88P
+#                                888   Y88b 888  "88b  Y88b d88P
+#                                888    888 888  .88P   Y88o88P
+#                                888   d88P 8888888K.    Y888P
+#                                8888888P"  888  "Y88b   d888b
+#                                888        888    888  d88888b
+#                                888        888   d88P d88P Y88b
+#                                888        8888888P" d88P   Y88b
+#                                                                               switchedonpbx.org
+#
+# a2billing - 22/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)  
+# This script is licensed under GNU GPL version 2.0
+
+############################### START VARIABLES #######################################
+VER_A2BILLING="1.9.3";
+A2BILLING_DB="a2billing_db";
+A2BILLING_USER="a2billing_us";
+A2BILLING_MGR="a2billing_mgr";
+A2BILLING_UI_ADMIN="admin";
+A2BILLING_UI_ADMIN_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+A2BILLING_DB_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+A2BILLING_MGR_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+data=$( tempfile 2>/dev/null )
+trap "rm -f $data" 0 1 2 5 15
+CPUINFO=`uname -m`
+
+HELPINGWORDS="";
+
+PKGNAME=a2billing
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#Check if freepbx is already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing freepbx
+	bash /usr/src/scripts/freepbx
+else
+	echo freepbx already installed
+fi
+
+. /etc/sop/passwords
+
+if [ -f /etc/sop/passwords ]
+then                    
+    source /etc/sop/passwords
+else    
+
+    while [ 1 ]; do
+
+	dialog --backtitle "SwitchedON PBX - A2BILLING" --title "Alert" --yesno "\nA2BILLING requires the mysql root password to install the databases. \n\nIf you don't rembember the password please get it, exit the script of installation and run it again. \n\nAnother option is to keep the file /root/password and run the script, the system will detect it and then will get the root password from this file. \n\nPress 'yes' to continue." 15 80
+	sel=$?
+	case $sel in
+   	0) 
+		;;
+   	1) 
+		exit; 
+		;;
+   	255) 
+		;;
+	esac
+
+	# get password with the --insecure option
+	dialog --backtitle "SwitchedON PBX - A2BILLING"   --title "Password" --clear --insecure --passwordbox "Enter your password Mysql root" 10 35 2> $data
+ 	ret=$?
+	# make decison
+	case $ret in
+	  0)
+    		PASS1=$(cat $data)
+		;;
+	  1)
+    		exit;
+		;;
+  	255)
+ 		[ -s $data ] &&  cat $data || echo "ESC pressed.";
+		;;
+	esac
+
+
+	dialog --backtitle "SwitchedON PBX - A2BILLING"   --title "Password" --clear --insecure --passwordbox "Re enter your password Mysql root" 10 35 2> $data
+	ret=$?
+	# make decison
+	case $ret in
+	  0)
+        	PASS2=$(cat $data)
+        	;;
+	  1)
+        	exit;
+        	;;
+  	255)
+        	[ -s $data ] &&  cat $data || echo "ESC pressed.";
+        	;;
+	esac
+
+	if [ "$PASS1" != "$PASS2" ]; then
+		dialog  --backtitle "SwitchedON PBX - A2BILLING"  --title "Info" --clear --msgbox "The passwords do not match, please try again!" 10 41
+		continue;
+	fi
+
+	if [ "$PASS1" == "" ]; then
+		dialog --backtitle "SwitchedON PBX - A2BILLING" --title "Info" --clear --msgbox "The passwords is empty, please try again!" 10 41
+		continue;
+	fi
+
+        SQL_RESULT=`echo "show databases;" | mysql -u root -p${PASS1} 2>&1 | grep 'Access denied'`
+	if [ "$SQL_RESULT" != "" ]; then
+		dialog --title "Info" --clear --msgbox "The password is not valid!, lets again!" 10 41
+		continue;
+	fi
+	MYSQL_ROOT_PW=$PASS1
+	break;
+
+     done
+
+fi
+
+clear
+
+#TAG:INSTALLATION & CONFIGURATION FOP2
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+echo "
+# A2BILLING" >> /etc/sop/passwords
+echo "A2BILLING_USER=\"${A2BILLING_USER}\";" >> /etc/sop/passwords
+echo "A2BILLING_DB=\"${A2BILLING_DB}\";" >> /etc/sop/passwords
+echo "A2BILLING_DB_PW=\"${A2BILLING_DB_PW}\";" >> /etc/sop/passwords
+echo "A2BILLING_UI_ADMIN=\"${A2BILLING_UI_ADMIN}\";" >> /etc/sop/passwords
+echo "A2BILLING_UI_ADMIN_PW=\"${A2BILLING_UI_ADMIN_PW}\";" >> /etc/sop/passwords
+
+cd /usr/src
+cp programs/A2Billing_${VER_A2BILLING}.tar.gz .
+#wget http://switchedonpbx.svn.sourceforge.net/viewvc/switchedonpbx/iso/programs/A2Billing_${VER_A2BILLING}.tar.gz -O /usr/src/A2Billing_${VER_A2BILLING}.tar.gz
+tar xzf /usr/src/A2Billing_${VER_A2BILLING}.tar.gz
+mv /usr/src/Star2Billing-a2billing-* /usr/src/a2billing
+
+echo "create database ${A2BILLING_DB};" | mysql -u root -p${MYSQL_ROOT_PW}
+echo "GRANT ALL PRIVILEGES ON ${A2BILLING_DB}.* TO ${A2BILLING_USER}@localhost IDENTIFIED BY '${A2BILLING_DB_PW}';" | mysql -u root -p${MYSQL_ROOT_PW}
+
+sed -i "s/myasterisk/${A2BILLING_MGR}/g" "/usr/src/a2billing/DataBase/mysql-5.x/a2billing-schema-v1.4.0.sql"
+sed -i "s/mycode/${A2BILLING_MGR_PW}/g" "/usr/src/a2billing/DataBase/mysql-5.x/a2billing-schema-v1.4.0.sql"
+
+
+# Change default user and password
+mkdir -p /var/www/html/a2billing/ 
+cat > /var/www/html/a2billing/gen_pass_a2b.php << EOF
+#!/usr/bin/php
+<?php
+\$pass = \$_SERVER["argv"][1];
+
+if(empty(\$pass)){
+   echo "Use : php gen_pass_a2b.php your_password\n";
+   echo "Or ./gen_pass_a2b.php your_password\n";
+   exit();
+}else{
+   \$pass_encoded= hash( 'whirlpool',\$pass);
+   echo "Your new password : \$pass_encoded\n";
+   echo "Copy your new password and paste.\n";
+}
+?>
+EOF
+A2BILLING_PW_ENC=`php /var/www/html/a2billing/gen_pass_a2b.php ${A2BILLING_UI_ADMIN_PW} | grep : | awk '{ print $5}'`
+
+#sed -i "s/'root'/'${A2BILLING_UI_ADMIN}'/g" "/usr/src/a2billing/DataBase/mysql-5.x/a2billing-schema-v1.4.0.sql"
+#sed -i "s/410fc6268dd3332226de95e42d9efa4046c5463769d7493b85e65cfa5c26362dc2455cc23c0bc5831deb008def4ab11a9eaa9b76ba3f377da134f39ec60dd758/$A2BILLING_PW_ENC/g" "/usr/src/a2billing/DataBase/mysql-5.x/a2billing-schema-v1.4.0.sql"
+
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/a2billing-schema-v1.4.0.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.0-to-v1.4.1.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.1-to-v1.4.2.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.2-to-v1.4.3.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.3-to-v1.4.4.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.4-to-v1.4.4.1.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.4.1-to-v1.4.5.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.4.5-to-v1.5.0.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.5.0-to-v1.5.1.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.5.1-to-v1.6.0.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.6.0-to-v1.6.1.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.6.1-to-v1.6.2.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.6.2-to-v1.7.0.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.7.0-to-v1.7.1.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.7.1-to-v1.7.2.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.7.2-to-v1.8.0.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.0-to-v1.8.1.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.1-to-v1.8.2.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.2-to-v1.8.3.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.3-to-v1.8.4.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.4-to-v1.8.5.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.5-to-v1.8.6.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.8.6-to-v1.9.0.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.9.0-to-v1.9.1.sql 
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.9.1-to-v1.9.2.sql
+mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB} < /usr/src/a2billing/DataBase/mysql-5.x/UPDATE-a2billing-v1.9.2-to-v1.9.3.sql
+
+. /etc/sop/passwords
+echo "update cc_ui_authen set pwd_encoded='${A2BILLING_PW_ENC}' where login='root';" | mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB}
+echo "update cc_ui_authen set login='${A2BILLING_UI_ADMIN}' where pwd_encoded='${A2BILLING_PW_ENC}';" | mysql -uroot -p${MYSQL_ROOT_PW} ${A2BILLING_DB}
+
+echo "+----------------------------------------------------------------+"
+echo "| Configurando archivo a2billing.conf                            |"
+echo "+----------------------------------------------------------------+"
+
+cp /usr/src/a2billing/a2billing.conf /etc/
+chown asterisk:asterisk /etc/a2billing.conf
+sed -i "s/\(user *= *\)\(.*\)/\1${A2BILLING_USER}/" /etc/a2billing.conf
+sed -i "s/\(password *= *\)\(.*\)/\1${A2BILLING_DB_PW}/" /etc/a2billing.conf
+sed -i "s/\(dbname *= *\)\(.*\)/\1${A2BILLING_DB}/" /etc/a2billing.conf
+
+echo "+----------------------------------------------------------------+"
+echo "| web-based Graphical interfaces                                 |"
+echo "+----------------------------------------------------------------+"
+chmod 777 /etc/asterisk
+
+mkdir /var/www/html/a2billing
+touch /var/www/html/a2billing/index.html
+chown asterisk:asterisk /var/www/html/a2billing
+
+#new A2billing 1.7.1
+mkdir -p /var/run/a2billing
+mkdir -p /var/lib/a2billing/script
+
+cp -rf /usr/src/a2billing/admin /var/www/html/a2billing
+cp -rf /usr/src/a2billing/agent /var/www/html/a2billing
+cp -rf /usr/src/a2billing/customer /var/www/html/a2billing
+cp -rf /usr/src/a2billing/common /var/www/html/a2billing
+
+#Fix the permissions of the templates_c folder in each of the UI
+chmod 755 /var/www/html/a2billing/admin/templates_c
+chmod 755 /var/www/html/a2billing/customer/templates_c
+chmod 755 /var/www/html/a2billing/agent/templates_c
+
+chown -Rf asterisk:asterisk /var/www/html/a2billing/admin/templates_c
+chown -Rf asterisk:asterisk /var/www/html/a2billing/customer/templates_c
+chown -Rf asterisk:asterisk /var/www/html/a2billing/agent/templates_c
+
+echo "+----------------------------------------------------------------+"
+echo "| creando archivos SIP y IAX                                     |"
+echo "+----------------------------------------------------------------+"
+
+cd /etc/asterisk/
+touch additional_a2billing_iax.conf
+touch additional_a2billing_sip.conf
+touch extensions_a2billing.conf
+
+chown asterisk:asterisk additional_a2billing_iax.conf
+chown asterisk:asterisk additional_a2billing_sip.conf
+chown asterisk:asterisk extensions_a2billing.conf
+
+echo "#include additional_a2billing_sip.conf" >> /etc/asterisk/sip_custom.conf
+echo "#include additional_a2billing_iax.conf" >> /etc/asterisk/iax_custom.conf
+echo "#include extensions_a2billing.conf" >> /etc/asterisk/extensions_custom.conf
+
+echo "[a2billing]
+include => a2billing_callingcard
+include => a2billing_monitoring
+include => a2billing_voucher
+
+[a2billing_callingcard]
+; CallingCard application
+exten => _XXXX.,1,Answer
+exten => _XXXX.,2,Wait,2
+exten => _XXXX.,3,DeadAGI,a2billing.php
+exten => _XXXX.,4,Wait,2
+exten => _XXXX.,5,Hangup
+
+[a2billing_monitoring]
+; Monitoring IVR application
+exten => 100,1,Answer
+exten => 100,2,Wait,2
+exten => 100,3,DeadAGI,a2billing_monitoring.php
+exten => 100,4,Wait,2
+exten => 100,5,Hangup
+
+[a2billing_voucher]
+exten => 101,1,Answer
+exten => 101,2,Wait,2
+exten => 101,3,DeadAGI(a2billing.php|1|voucher)
+exten => 101,4,Wait,2
+exten => 101,5,Hangup
+
+[a2billing_did]
+; CallingCard DID application
+exten => _X.,1,DeadAGI(a2billing.php|1|did)
+" >> /etc/asterisk/extensions_a2billing.conf
+
+echo "+----------------------------------------------------------------+"
+echo "| Configurando Asterisk Manager                                  |"
+echo "+----------------------------------------------------------------+"
+
+echo "
+[${A2BILLING_MGR}]
+secret = ${A2BILLING_MGR_PW}
+deny=0.0.0.0/0.0.0.0
+permit=127.0.0.1/255.255.255.0
+read = system,call,log,verbose,command,agent,user
+write = system,call,log,verbose,command,agent,user
+" >> /etc/asterisk/manager_custom.conf
+
+echo "+----------------------------------------------------------------+"
+echo "| Instalación de Sound                                           |"
+echo "+----------------------------------------------------------------+"
+
+/usr/src/a2billing/addons/sounds/install_a2b_sounds.sh
+chown -R asterisk:asterisk /var/lib/asterisk/sounds/
+
+mkdir -p /var/lib/asterisk/mohmp3/acc_1
+mkdir -p /var/lib/asterisk/mohmp3/acc_2
+mkdir -p /var/lib/asterisk/mohmp3/acc_3
+mkdir -p /var/lib/asterisk/mohmp3/acc_4
+mkdir -p /var/lib/asterisk/mohmp3/acc_5
+mkdir -p /var/lib/asterisk/mohmp3/acc_6
+mkdir -p /var/lib/asterisk/mohmp3/acc_7
+mkdir -p /var/lib/asterisk/mohmp3/acc_8
+mkdir -p /var/lib/asterisk/mohmp3/acc_9
+mkdir -p /var/lib/asterisk/mohmp3/acc_10
+chmod -R 777 /var/lib/asterisk/mohmp3/acc_*
+chown -R asterisk:asterisk /var/lib/asterisk/mohmp3/
+
+echo "
+; class definitions for a2billing
+acc_1 => mp3:/var/lib/asterisk/mohmp3/acc_1
+acc_2 => mp3:/var/lib/asterisk/mohmp3/acc_2
+acc_3 => mp3:/var/lib/asterisk/mohmp3/acc_3
+acc_4 => mp3:/var/lib/asterisk/mohmp3/acc_4
+acc_5 => mp3:/var/lib/asterisk/mohmp3/acc_5
+acc_6 => mp3:/var/lib/asterisk/mohmp3/acc_6
+acc_7 => mp3:/var/lib/asterisk/mohmp3/acc_7
+acc_8 => mp3:/var/lib/asterisk/mohmp3/acc_8
+acc_9 => mp3:/var/lib/asterisk/mohmp3/acc_9
+acc_10 => mp3:/var/lib/asterisk/mohmp3/acc_10
+" >> /etc/asterisk/musiconhold_custom.conf
+
+echo "+----------------------------------------------------------------+"
+echo "| Instalando componentes AGI                                     |"
+echo "+----------------------------------------------------------------+"
+
+cd /usr/src/a2billing/AGI
+cp a2billing.php /var/lib/asterisk/agi-bin/
+cp a2billing_monitoring.php /var/lib/asterisk/agi-bin/
+ln -s /var/www/html/a2billing/common/lib/  /var/lib/asterisk/agi-bin/lib
+chmod +x /var/lib/asterisk/agi-bin/a2billing.php
+chmod +x /var/lib/asterisk/agi-bin/a2billing_monitoring.php
+chown -R asterisk:asterisk /var/lib/asterisk/agi-bin
+
+echo "+----------------------------------------------------------------+"
+echo "| Configure recurring services                                   |"
+echo "+----------------------------------------------------------------+"
+
+# Configure recurring services
+mkdir /usr/lib/a2billing/
+cp -rf /usr/src/a2billing/Cronjobs /usr/lib/a2billing/
+#fix 
+rm /usr/lib/a2billing/Cronjobs/lib
+ln -s /var/www/html/a2billing/common/lib/ /usr/lib/a2billing/Cronjobs/lib
+
+echo "
+# update the currency table
+0 6 * * * php /usr/lib/a2billing/Cronjobs/currencies_update_yahoo.php
+
+# manage the monthly services subscription
+0 6 1 * * php /usr/lib/a2billing/Cronjobs/a2billing_subscription_fee.php
+
+# To check account of each Users and send an email if the balance is
+# less than the user have choice.
+0 * * * * php /usr/lib/a2billing/Cronjobs/a2billing_notify_account.php
+
+# this script will browse all the DID that are reserve and check if
+# the customer need to pay for it
+# bill them or warn them per email to know if they want to pay in
+# order to keep their DIDs
+0 2 * * * php /usr/lib/a2billing/Cronjobs/a2billing_bill_diduse.php
+
+# This script will take care of the recurring service.
+0 12 * * * php /usr/lib/a2billing/Cronjobs/a2billing_batch_process.php
+op2
+#Generate Invoices at 6am everyday
+0 6 * * * php /usr/lib/a2billing/Cronjobs/a2billing_batch_billing.php
+
+# to proceed the autodialer
+*/5 * * * * php /usr/lib/a2billing/Cronjobs/a2billing_batch_autodialer.php
+
+# manage alarms
+0 * * * * php /usr/lib/a2billing/Cronjobs/a2billing_alarm.php
+" >>  /etc/cron.d/a2billing
+
+
+echo "+----------------------------------------------------------------+"
+echo "| Call back daemon (only for Call backs)                         |"
+echo "+----------------------------------------------------------------+"
+
+#easy_install /usr/src/a2billing/CallBack/callback-daemon-py/dist/callback_daemon-*.egg
+
+#cd /usr/src/a2billing/CallBack/callback-daemon-py/callback_daemon
+#cp a2b-callback-daemon.debian /etc/init.d/a2b-callback-daemon
+#chmod +x /etc/init.d/a2b-callback-daemon
+
+#update-rc.d a2b-callback-daemon defaults 40 60
+#/etc/init.d/a2b-callback-daemon start
+
+# Adds deselastixados menuitem
+
+PKGNAME="a2billing";
+
+exists=`sqlite3 /var/www/db/acl.db "select * from acl_resource;"|grep ${PKGNAME}`
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing ${PKGNAME} deselastixados menuitem
+	last_resource=`sqlite3 /var/www/db/acl.db "select * from acl_resource;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	resource_to_use=`expr $last_resource + 1` 
+	last_permission=`sqlite3 /var/www/db/acl.db "select * from acl_group_permission;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	group_permission_to_use=`expr $last_permission + 1` 
+	sqlite3 /var/www/db/menu.db  "insert into menu (id,IdPArent,Link,Name,Type,order_no) values ('${PKGNAME}','pbxconfig','/a2billing/admin','${PKGNAME}','framed','44');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_resource (id,name,description) values ('$resource_to_use','${PKGNAME}','${PKGNAME}');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_group_permission (id,id_action,id_group,id_resource) values ('$group_permission_to_use',1,1,'$resource_to_use');" 
+	# Add translations to all lang files
+	for i in `ls -1 /var/www/html/lang/`; do 
+	mv /var/www/html/lang/$i /var/www/html/lang/$i.backup
+	sed '/^\$arrLang=array/a \"${PKGNAME}\" => \"${PKGNAME}\",' /var/www/html/lang/$i.backup > /var/www/html/lang/$i
+	done;
+	rm -rf /var/www/html/lang/*.backup
+else
+echo ${PKGNAME} menuitem already installed
+fi
+
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+exit 0

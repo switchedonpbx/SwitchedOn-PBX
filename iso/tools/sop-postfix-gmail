@@ -1,0 +1,121 @@
+#!/bin/bash
+
+#Input Gmail credentials
+echo "Input your Gmail user with syntax account@gmail.com"
+read gmailuser
+echo "Input your Gmail password"
+read gmailpasswd
+
+# Input certificate data
+echo "Now you need to input some data to create ssl certificates"
+echo "Country code (two letter code)"
+read country
+echo "State"
+read state
+echo "Locality"
+read locality
+echo "Organization"
+read organization
+echo "Oranizational Unit"
+read orgunit
+echo "Server Name"
+read servername
+echo "Admin email"
+read adminemail
+
+
+#Stop postfix, backup main.cf and add tls data
+/etc/init.d/postfix stop
+cp /etc/postfix/main.cf /etc/postfix/main.cf.backup-`date +%Y-%m-%d-%Hh%Mm`
+
+cat >> /etc/postfix/main.cf << EOF
+
+# SMTP relayhost
+relayhost = [smtp.gmail.com]:587
+
+## TLS Settings
+smtp_tls_loglevel = 1
+smtp_tls_CAfile = /etc/postfix/certs/CAcert.pem
+smtp_tls_cert_file = /etc/postfix/certs/mycert.pem
+smtp_tls_key_file = /etc/postfix/certs/mykey.pem
+smtp_use_tls = yes
+smtpd_tls_CAfile = /etc/postfix/certs/CAcert.pem
+smtpd_tls_cert_file = /etc/postfix/certs/mycert.pem
+smtpd_tls_key_file = /etc/postfix/certs/mykey.pem
+smtpd_tls_received_header = yes
+smtpd_use_tls = yes
+
+# TLS configuration
+smtp_use_tls = yes
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_sasl_tls_security_options = noanonymous
+
+# alias de mapeo interno a externo
+smtp_generic_maps = hash:/etc/postfix/generic
+
+EOF
+
+#Configure postfix
+mv /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.backup-`date +%Y-%m-%d-%Hh%Mm`
+echo "[smtp.gmail.com]:587 $gmailuser:$gmailpasswd" >> /etc/postfix/sasl_passwd
+mv /etc/postfix/generic /etc/postfix/generic.backup-`date +%Y-%m-%d-%Hh%Mm`
+gmailaccount=`echo $gmailuser|awk -F "@" '1 { print  $1 }'`
+echo "$gmailaccount@localhost $gmailuser" >> /etc/postfix/generic
+chmod 600 /etc/postfix/sasl_passwd
+chmod 600 /etc/postfix/generic
+postmap /etc/postfix/sasl_passwd
+postmap /etc/postfix/generic
+/etc/init.d/postfix restart
+
+#Backup ssl certificates and recreate them
+mv /etc/postfix/certs /etc/postfix/certs.backup-`date +%Y-%m-%d-%Hh%Mm`
+mkdir -p /etc/postfix/certs/
+cd /etc/postfix/certs/
+
+cat >> openssl.cnf << EOF
+
+[ req ]
+default_bits = 1024 # Size of keys
+default_keyfile = key.pem # name of generated keys
+default_md = md5 # message digest algorithm
+string_mask = nombstr # permitted characters
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+# Variable name   Prompt string
+0.organizationName = Organization Name (company)
+organizationalUnitName = Organizational Unit Name (department, division)
+emailAddress = Email Address
+emailAddress_max = 40
+localityName = Locality Name (city, district)
+stateOrProvinceName = State or Province Name (full name)
+countryName = Country Name (2 letter code)
+countryName_min = 2
+countryName_max = 2
+commonName = Common Name (hostname, IP, or your name)
+commonName_max = 64
+
+
+#-------------------Edit this section------------------------------
+countryName_default     = $country
+stateOrProvinceName_default = $state
+localityName_default        = $locality
+0.organizationName_default  = $organization
+organizationalUnitName_default  = $orgunit
+commonName_default          = $servername
+emailAddress_default            = $adminemail
+
+EOF
+
+openssl dsaparam 1024 -out dsa1024.pem
+openssl req -x509 -nodes -days 3650 -newkey dsa:dsa1024.pem -out mycert.pem -keyout mykey.pem -config openssl.cnf -batch
+ln -s mycert.pem CAcert.pem
+openssl req -x509 -new -days 3650 -key mykey.pem -out mycert.pem -config openssl.cnf -batch
+rm -rf dsa1024.pem openssl.cnf
+#TAG:RESTARTING POSTFIX
+/etc/init.d/postfix restart
+
+#echo "Test email using Gmail relay" | mail -s "Mail subject" ramon@solidpc.net; tail -f /var/log/mail.log
+

@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svnroot/switchedonpbx/!svn/ver/138/iso/apt-key
+END
+debian-multimedia-keyring.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/switchedonpbx/!svn/ver/138/iso/apt-key/debian-multimedia-keyring.gpg
+END
+autobuild.pgp
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/138/iso/apt-key/autobuild.pgp
+END
+dotdeb.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svnroot/switchedonpbx/!svn/ver/138/iso/apt-key/dotdeb.gpg
+END

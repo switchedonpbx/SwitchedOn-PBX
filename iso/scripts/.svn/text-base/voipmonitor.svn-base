@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# voipmonitor - 12/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+WWW_ROOT="/var/www/html"
+sed -i "/VOIPMONITOR/d" /etc/sop/passwords
+. /etc/sop/passwords
+WWW_ROOT="/var/www/html";
+
+HELPINGWORDS="";
+
+#TAG: AUTOGENERATING PASSWORDS
+VOIPMONITOR_DB="voipmonitor";
+VOIPMONITOR_DB_USER="voipmon_db_us";
+VOIPMONITOR_DB_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+
+#TAG: STORING PASSWORDS INTO /etc/sop/passwords
+echo "" >> /etc/sop/passwords
+echo "#VOIPMONITOR PASSWORDS" >> /etc/sop/passwords
+echo "VOIPMONITOR_DB=\"${VOIPMONITOR_DB}\";" >> /etc/sop/passwords
+echo "VOIPMONITOR_DB_USER=\"${VOIPMONITOR_DB_USER}\";" >> /etc/sop/passwords
+echo "VOIPMONITOR_DB_PW=\"${VOIPMONITOR_DB_PW}\";" >> /etc/sop/passwords
+#####################################################################################################
+
+PKGNAME=$0
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i '/${PKGNAME}/d' /etc/sop/sop-addons
+fi
+
+#TAG:INSTALL ASTERISK
+cat /etc/sop/sop-addons|grep asterisk &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo Installing Asterisk
+bash /usr/src/scripts/asterisk-18-debs
+else
+echo Asterisk already installed
+fi
+
+PACKAGES="libpcap-dev libmysqlclient-dev zlib1g-dev checkinstall"
+apt-get -y install ${PACKAGES}
+
+cd /usr/src
+wget http://downloads.sourceforge.net/project/voipmonitor/2.1.1/voipmonitor-2.1.1.tar.gz
+tar xfvz voipmonitor-2.1.1.tar.gz
+cd voipmonitor-2.1.1
+wget http://tangentsoft.net/mysql++/releases/mysql++-3.0.9.tar.gz
+tar xzfv mysql++-3.0.9.tar.gz
+cd mysql++-3.0.9
+#TAG:CONFIGURING
+./configure
+#make && make install
+#TAG:INSTALLING
+make
+mkdir -p /usr/src/debs
+sudo checkinstall -D --pkgname=mysql++ --fstrans=no --pakdir "/usr/src/debs" \
+--maintainer "$USER" --pkgversion "3.0.9" --backup=no \
+--deldoc=yes --deldesc=yes --delspec=yes --default
+ldconfig
+cd ..
+#make && make install
+make
+sudo checkinstall -D --pkgname=voipmonitor --fstrans=no --pakdir "/usr/src/debs" \
+--maintainer "$USER" --pkgversion "2.1.1" --backup=no \
+--deldoc=yes --deldesc=yes --delspec=yes --default
+mkdir -p /var/spool/voipmonitor
+
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${VOIPMONITOR_DB}.* TO ${VOIPMONITOR_DB_USER}@localhost IDENTIFIED BY \"${VOIPMONITOR_DB_PW}\"" mysql
+mysqladmin --default-character-set=utf8 -u${VOIPMONITOR_DB_USER} -p${VOIPMONITOR_DB_PW} create ${VOIPMONITOR_DB}
+mysql -u${VOIPMONITOR_DB_USER} -p${VOIPMONITOR_DB_PW} ${VOIPMONITOR_DB} < cdrtable.sql 
+
+#INTERFACE & IP_ADRESS
+INTERFACE_TMP=`ip ro|grep default| awk '{ print $5}'`
+if [ $INTERFACE_TMP == "venet0" ]  ; then
+INTERFACE="$INTERFACE_TMP:0";
+fi
+INTERFACE=$INTERFACE_TMP
+IP_ADRESS=`ifconfig $INTERFACE | grep 'inet addr:' | cut -d: -f2 | awk '{ print \$1}'`;
+
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+voipmonitor -i ${INTERFACE} -u${VOIPMONITOR_DB_USER} -p${VOIPMONITOR_DB_PW} -SRG
+
+#voipmonitor -i ${INTERFACE} -u${VOIPMONITOR_DB_USER} -p${VOIPMONITOR_DB_PW} -SRG -k -v 99999

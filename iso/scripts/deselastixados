@@ -1,0 +1,167 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+#
+# GRUPO DESELASTIXADOS
+# www.deselastixados.com.ar
+# Copyright (c) 2011 - DESELASTIXADOS
+# This script is licensed under GNU GPL version 2.0
+# Author: Federico Pereira <info@opentecnologic.com> & <fpereira@debpbx.org>
+
+
+PKGNAME=deselastixados
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#TAG: INSTALLING DEPENDENCIES
+#Check if freepbx is already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing freepbx
+	bash /usr/src/scripts/freepbx
+else
+	echo freepbx already installed
+fi
+
+. /etc/sop/passwords
+
+############################### START VARIABLES #######################################
+DESELASTIXADOS_PANEL_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+DESELASTIXADOS_PANEL_PW_MD5=`echo -n "${DESELASTIXADOS_PANEL_PW}" | md5sum | awk '{ print $1 }'`
+echo "" >> /etc/sop/passwords
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+echo "# DESELASTIXADOS PANEL FOR DEBIAN" >> /etc/sop/passwords
+echo "DESELASTIXADOS_PANEL_PW=\"${DESELASTIXADOS_PANEL_PW}\";" >> /etc/sop/passwords
+#echo "DESELASTIXADOS_PANEL_PW_MD5=\"${DESELASTIXADOS_PANEL_PW_MD5}\";" >> /etc/sop/passwords
+HELPINGWORDS="";
+################################# END VARIABLES #######################################
+
+#TAG:Download Panel Deselastixados
+svn export https://deselastixados.svn.sourceforge.net/svnroot/deselastixados /deselastixados
+rm -rf /deselastixados/etc/postfix*
+PACKAGES="sqlite3 php-mdb2-driver-sqlite libphp-jpgraph sudo chkconfig iaxmodem hylafax-server"
+
+aptitude install -y $PACKAGES
+
+#TAG:DOWNLOAD PEAR
+pear upgrade-all
+/etc/init.d/apache2 force-reload
+
+#TAG:INSTALATION CORE
+rm /var/www/html/index.html
+cp -R /deselastixados/deselastixados-core-2.0.0-57/* /
+chown asterisk:asterisk -R /tftpboot
+chown -R asterisk:asterisk /var/www/
+
+#TAG:RECONFIGURATION SUDO
+cp /usr/share/deselastixados/sudoers /etc/sudoers
+chmod 440 /etc/sudoers
+/etc/init.d/sudo restart
+
+#Fix postfix weird libexec thing
+sed -i '/libexec/d' /etc/postfix/main.cf
+/etc/init.d/postfix restart
+
+#TAG:Cambiar clave de panel
+sqlite3 /var/www/db/acl.db "UPDATE acl_user SET md5_password = '$DESELASTIXADOS_PANEL_PW_MD5' WHERE name = 'admin'"
+
+#TAG:creado menu
+chmod 777 /usr/share/deselastixados/menusAdminElx
+/usr/share/deselastixados/menusAdminElx
+
+
+#TAG:INSTALL MODULE deselastixados-system-2.0.0-38
+cp -R /deselastixados/deselastixados-system-2.0.0-38/* /
+chown asterisk:asterisk -R /var/www/
+
+#fix
+cp /deselastixados/deselastixados-pbx-2.0.0-40/usr/share/deselastixados/module_installer/deselastixados-pbx-2.0.0-40/setup/migrationFilesMonitor.php /usr/local/deselastixados
+echo "09,39 * * * *  root /usr/bin/php -q /usr/local/deselastixados/migrationFilesMonitor.php >/dev/null 2>/dev/null" >> /etc/cron.d/deselastixados.cron
+
+deselastixados-menumerge /usr/share/deselastixados/module_installer/deselastixados-system-2.0.0-38/menu.xml 
+php /usr/share/deselastixados/module_installer/deselastixados-system-2.0.0-38/setup/installer.php
+
+#TAG:INSTALL MODULE deselastixados-pbx-2.0.0-40
+cp -R /deselastixados/deselastixados-pbx-2.0.0-40/* /
+chown asterisk:asterisk -R /var/www/
+
+deselastixados-menumerge /usr/share/deselastixados/module_installer/deselastixados-pbx-2.0.0-40/menu.xml
+php /usr/share/deselastixados/module_installer/deselastixados-pbx-2.0.0-40/setup/installer.php
+
+#TAG:INSTALL MODULE deselastixados-reports-2.0.0-20
+cp -R /deselastixados/deselastixados-reports-2.0.0-20/* /
+chown asterisk:asterisk -R /var/www/
+
+#fix 
+rm /var/www/db/rate.db
+
+deselastixados-menumerge /usr/share/deselastixados/module_installer/deselastixados-reports-2.0.0-20/menu.xml
+php /usr/share/deselastixados/module_installer/deselastixados-reports-2.0.0-20/setup/installer.php
+
+#TAG:INSTALL MODULE deselastixados-agenda-2.0.0-24
+cp -R /deselastixados/deselastixados-agenda-2.0.0-24/var/lib/asterisk/sounds/* /var/lib/asterisk/sounds/ 
+cp -R /deselastixados/deselastixados-agenda-2.0.0-24/* /
+chown asterisk:asterisk -R /var/www/
+
+#fix
+if [ -f /var/www/db/calendar.db ]; then
+	rm /var/www/db/calendar.db
+fi
+
+deselastixados-menumerge /usr/share/deselastixados/module_installer/deselastixados-agenda-2.0.0-24/menu.xml
+php /usr/share/deselastixados/module_installer/deselastixados-agenda-2.0.0-24/setup/installer.php
+
+#TAG:INSTALL MODULE deselastixados-fax-2.0.0-18
+cp -R /deselastixados/deselastixados-fax-2.0.0-18/* /
+chown asterisk:asterisk -R /var/www/
+
+#fix
+if [ -f /var/www/db/fax.db ]; then
+	rm /var/www/db/fax.db
+fi
+
+deselastixados-menumerge /usr/share/deselastixados/module_installer/deselastixados-fax-2.0.0-18/menu.xml
+php /usr/share/deselastixados/module_installer/deselastixados-fax-2.0.0-18/setup/installer.php
+
+#TAG:INSTALL MODULE deselastixados-email_admin-2.0.0-23
+cp -R /deselastixados/deselastixados-email_admin-2.0.0-23/* /
+chown asterisk:asterisk -R /var/www/
+
+#fix
+if [ -f /var/www/db/email.db ]; then
+	rm /var/www/db/email.db
+fi
+
+
+deselastixados-menumerge /usr/share/deselastixados/module_installer/deselastixados-email_admin-2.0.0-23/menu.xml
+php /usr/share/deselastixados/module_installer/deselastixados-email_admin-2.0.0-23/setup/installer.php
+
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+echo ${HELPINGWORDS}
+

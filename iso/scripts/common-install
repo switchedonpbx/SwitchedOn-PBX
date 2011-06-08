@@ -1,0 +1,351 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# default-install - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+#HOST
+HOSTS="pbx";
+HOSTNAME="switchedonpbx.org";
+HOST_AND_HOSTNAME="${HOSTS}.${HOSTNAME}"
+
+#INTERFACE & IP_ADRESS
+INTERFACE_TMP=`ip ro|grep default| awk '{ print $5}'`
+if [ $INTERFACE_TMP == "venet0" ]  ; then
+INTERFACE="$INTERFACE_TMP:0";
+fi
+INTERFACE=$INTERFACE_TMP
+IP_ADRESS=`ifconfig $INTERFACE | grep 'inet addr:' | cut -d: -f2 | awk '{ print \$1}'`;
+
+PKGNAME=common-install
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#CREATING PASSWORDS FILE WITH 0600 PERMISSIONS
+touch /etc/sop/passwords
+chmod 0600 /etc/sop/passwords
+
+#TAG:RECONFIGURING REPOSITORY
+cat > /etc/apt/sources.list <<ENDLINE
+deb http://ftp.us.debian.org/debian/ squeeze main non-free contrib
+deb-src http://ftp.us.debian.org/debian/ squeeze main non-free contrib
+
+deb http://security.debian.org/ squeeze/updates main contrib non-free
+deb-src http://security.debian.org/ squeeze/updates main contrib non-free
+
+deb http://ftp.us.debian.org/debian/ squeeze-updates main contrib non-free
+deb-src http://ftp.us.debian.org/debian/ squeeze-updates main contrib non-free
+
+deb http://www.debian-multimedia.org/ squeeze main non-free
+deb-src http://www.debian-multimedia.org/ squeeze main non-free
+
+deb http://packages.dotdeb.org squeeze all
+deb-src http://packages.dotdeb.org squeeze all
+ENDLINE
+
+apt-key add /usr/src/apt-key/debian-multimedia-keyring.gpg
+apt-key add /usr/src/apt-key/dotdeb.gpg
+apt-get update
+apt-get -y upgrade
+
+#TAG:INSTALATION DEBS
+
+#Provisional fix for postfix
+apt-get -y purge postfix
+apt-get -y install postfix 
+# /etc/init.d/postfix restart
+
+PACKAGES="vim subversion iftop htop ngrep python sudo ghostscript expect nmap screen dialog iptraf mtr tcpdump libwww-perl mc mlocate openvpn pppoeconf sysstat openssh-server postfix dos2unix console-data"
+
+#TAG:INSTALLING DEPENDENCIES
+aptitude install -y ${PACKAGES}
+
+#TAG:RECONFIGURATING LOCALES
+echo ""
+echo "<<<<<<<<<<  RECONFIGURATION LOCALE  >>>>>>>>>>"
+sed -i "s/# es_AR.UTF-8 UTF-8/es_AR.UTF-8 UTF-8/g" "/etc/locale.gen"
+sed -i "s/# es_AR ISO-8859-1/es_AR ISO-8859-1/g" "/etc/locale.gen"
+sed -i "s/# es_ES ISO-8859-1/es_ES ISO-8859-1/g" "/etc/locale.gen"
+sed -i "s/# es_ES.UTF-8 UTF-8/es_ES.UTF-8 UTF-8/g" "/etc/locale.gen"
+sed -i "s/# es_ES@euro ISO-8859-15/es_ES@euro ISO-8859-15/g" "/etc/locale.gen"
+sed -i "s/# en_US ISO-8859-1/en_US ISO-8859-1/g" "/etc/locale.gen"
+sed -i "s/# en_US.ISO-8859-15 ISO-8859-15/en_US.ISO-8859-15 ISO-8859-15/g" "/etc/locale.gen"
+sed -i "s/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" "/etc/locale.gen"
+sed -i "s/\(^\LANG=\)\(.*\)/\1es_AR.UTF-8 UTF-8/" /etc/default/locale
+dpkg-reconfigure -f noninteractive locales
+
+#TAG:RECONFIGURATION HOSTS
+echo ""
+echo "<<<<<<<<<<  RECONFIGURATION HOSTS  >>>>>>>>>>"
+rm /etc/hosts
+echo "
+127.0.0.1 localhost.localdomain localhost
+${IP_ADRESS} ${HOST_AND_HOSTNAME} ${HOSTS}
+
+# The following lines are desirable for IPv6 capable hosts
+::1 localhost ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+ff02::3 ip6-allhosts
+" >> /etc/hosts
+
+echo ${HOST_AND_HOSTNAME} > /etc/hostname
+/etc/init.d/hostname.sh start
+
+#TAG:RECONFIGURATION ALIASES
+echo ""
+echo "<<<<<<<<<<  RECONFIGURATION ALIASES  >>>>>>>>>>"
+echo "root: $MAIL" >> /etc/aliases
+/usr/bin/newaliases
+
+#TAG:RECONFIGURATION POSTFIX
+echo ""
+echo "<<<<<<<<<<  RECONFIGURATION POSTFIX  >>>>>>>>>>"
+postconf -e "myhostname = ${HOST_AND_HOSTNAME}"
+postconf -e "mydestination = ${HOST_AND_HOSTNAME}, localhost.${HOSTNAME}, localhost.localdomain, localhost"
+postconf -e "inet_protocols = all"
+postconf -e "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128"
+echo ${HOST_AND_HOSTNAME} > /etc/mailname
+/etc/init.d/postfix restart
+
+#TAG:TIPS
+#Optimize mysql tables
+echo ". /etc/sop/passwords
+mysqlcheck -uroot -p\${MYSQL_ROOT_PW} --optimize -A" > /usr/bin/optimizemysql.sh
+chmod +x /usr/bin/optimizemysql.sh
+
+#TAG:CUSTOMIZATION DEBPBX
+cat > /root/.screenrc <<ENDLINE
+#
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# screenrc - 16/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+#/etc/screenrc
+
+# SCREEN SETTINGS
+deflogin on
+autodetach on
+vbell_msg "   Wuff  ----  Wuff!!  "
+altscreen on
+termcapinfo xterm* ti@:te@
+startup_message off
+vbell off
+autodetach on
+altscreen on
+shelltitle "$ |bash"
+defscrollback 10000
+defutf8 on
+nonblock on
+
+#SCREEN KEYBINDINGS
+bindkey -k k2 prev  # Previous = F2
+bindkey -k k3 next  # Next = F3
+
+bindkey -k k4 screen # new screen = F4
+bindkey -k k5 windowlist
+bindkey -k k6 kill  # kill terminal = f9
+
+bindkey -k k9 detach # save and detach = 
+bindkey -k k; quit  # quit screen = f10
+
+# Remove some stupid / dangerous key bindings
+bind ^k
+#bind L
+bind ^\
+# Make them better
+bind \\ quit
+bind K kill
+bind I login on
+bind O login off
+bind } history
+
+#TERMINAL SETTINGS
+
+hardstatus on
+termcapinfo xterm*|rxvt*|kterm*|terminator*|Eterm* hs:ts=\E]0;:fs=\007:ds=\E]0;\007
+hardstatus alwayslastline 
+hardstatus string '%{= kG}[ %{G}%H %{g}][%= %{= kw}%?%-Lw%?%{r}(%{W}%n*%f%t%?(%u)%?%{r})%{w}%?%+Lw%?%?%= %{g}][%{B} %d/%m %{W}%c %{g}]'
+#termcapinfo xterm*|linux*|rxvt*|Eterm* OP
+termcapinfo xterm 'is=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;4;6l'
+defnonblock 5
+
+#STARTUP SCREENS
+
+screen -t Bash1 0 bash
+screen -t Bash2 1 bash
+screen -t Htop 2 htop
+screen -t Asterisk 3 asterisk -rvvvvvvvvvvvvvvvvvvdddddddddddddddd
+screen -t Log 4 tail -f /var/log/syslog
+screen -t Chat 5 wall
+select 0
+ENDLINE
+
+#TAG:RECONFIGURATION OPEN-SSH-SERVER
+echo ""
+echo "<<<<<<<<<<  RECONFIGURATION OPEN-SSH-SERVER  >>>>>>>>>>"
+echo "Banner /etc/sop/sop-motd" >> /etc/ssh/sshd_config                                                                   
+cat > /etc/sop/sop-motd <<ENDLINE
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+#
+ENDLINE
+/etc/init.d/ssh restart
+
+#TAG:CREATION .BASH_LOGIN
+cat > /root/.bash_login <<ENDLINE
+#!/bin/bash
+source .bashrc
+clear
+cat /etc/sop/sop-motd
+echo "SwitchedONPBX-1.0"
+echo "Author: Federico Pereira <info@opentecnologic.com>"
+echo "Author: Ramon Lozano <ramon@solidpc.net>"
+echo "Copyright 2011 Federico Pereira (LordBaseX)"
+echo "This script is licensed under GNU GPL version 2.0"
+echo "Web Site: switchedonpbx.org"
+echo ""
+echo "Useful commands: sop-help"
+echo ""
+ENDLINE
+
+#TAG:CREATION .BASHRC
+cp /usr/src/programs/.bashrc /root/.bashrc
+sed -i "s/_HOST_AND_HOSTNAME_/${HOST_AND_HOSTNAME}/g" "/root/.bashrc"
+
+#TAG:REBOOT ON KERNEL PANIC
+grep panic /etc/sysctl.conf &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+echo "kernel.panic=20" >> /etc/sysctl.conf
+sysctl -p
+fi
+
+# Ping our server with ${SOP_VERSION} , so we can estimate how many sop installations are out there.
+wget http://www.switchedonpbx.com/sop_version.php?${SOP_VERSION} -O /dev/null
+
+#TAG:COMMANDS.
+#####################  YOUR OWN TRICKS ARE WELLCOME HERE  ######################
+
+echo "chown -R asterisk.asterisk /var/lib/asterisk/sounds/ /var/lib/asterisk/mohmp3/" > /usr/bin/soundspermissions.sh
+chmod +x /usr/bin/soundspermissions.sh
+
+echo "ngrep -d any -P ' ' -W byline -T port 5060" > /usr/bin/sipfulltrace.sh
+chmod +x /usr/bin/sipfulltrace.sh
+
+echo "asterisk -rvvvvvvvvvvvvvvvvvvv" > /usr/bin/a
+chmod +x /usr/bin/a
+
+echo "cd /var/spool/hylafax/log; for i in \`ls -1 | grep c0  | tail -1\`; do tail -f /var/spool/hylafax/log/\$i; done" > /usr/bin/hylafaxlog.sh
+chmod +x /usr/bin/hylafaxlog.sh
+
+echo "
+gpg --keyserver x-hkp://pool.sks-keyservers.net --recv-keys \$1
+gpg --armor --export \$1 | apt-key add -
+" > /usr/bin/aptkeyget.sh
+chmod +x /usr/bin/aptkeyget.sh
+
+#TAG:SUPPORT
+if [ ! $res -eq 0 ]; then
+        arch=`uname -m`
+        case $arch in
+                i686)
+                wget http://switchedonpbx.org/support/client/i686/sop-support -O /usr/local/sbin/sop-support
+		chmod +x /usr/local/sbin/sop-support
+                ;;
+                x86_64)
+                wget http://switchedonpbx.org/support/client/x86_64/sop-support -O /usr/local/sbin/sop-support
+		chmod +x /usr/local/sbin/sop-support
+                ;;
+        esac
+fi
+
+#TAG:CREATION FILE SOP-HELP
+cp /usr/src/programs/sop-help /usr/local/sbin/sop-help
+chmod +x /usr/local/sbin/sop-help
+
+#TAG:SECURITY PASSWORD
+#echo "<<<<<<<<<<  SECURITY PASSWORD  >>>>>>>>>"
+#sed -i "s/\/root:\/bin\/bash/\/root:\/usr\/local\/sbin\/sop-wizard/g" "/etc/passwd"
+
+#TAG:SECURITY PASSWORD
+echo "<<<<<<<<<<  SECURITY PASSWORD  >>>>>>>>>"
+echo "/usr/local/sbin/sop-wizard" >> /etc/bash.bashrc
+
+
+#TAG: ADDS ${PKGNAME} TO /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons

@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/562/usb/syslinux/install.386
+END
+vmlinuz
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svnroot/switchedonpbx/!svn/ver/562/usb/syslinux/install.386/vmlinuz
+END
+initrd.gz
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svnroot/switchedonpbx/!svn/ver/562/usb/syslinux/install.386/initrd.gz
+END

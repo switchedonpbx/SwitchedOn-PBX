@@ -1,0 +1,142 @@
+#!/bin/bash
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888
+#  Y88b.                        888            888                    888 888     888 88888b  888
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888
+#
+#
+#                                8888888b.  888888b.  Y88b   d88P
+#                                888   Y88b 888  "88b  Y88b d88P
+#                                888    888 888  .88P   Y88o88P
+#                                888   d88P 8888888K.    Y888P
+#                                8888888P"  888  "Y88b   d888b
+#                                888        888    888  d88888b
+#                                888        888   d88P d88P Y88b
+#                                888        8888888P" d88P   Y88b
+#                                                                               switchedonpbx.org
+#
+#
+# SwitchedONPBX-1.0
+# Author: dicko
+# This script is licensed under GNU GPL version 2.0
+#
+# Version 2.0
+########################################################################################################
+#
+# This file is a semi-self-documented and runnable script (In linux) of how to create a bootable USB stick, 
+# It that should get you up and running with S.O.P. 
+#
+# This file should  be copied to and chmod +x'd to make it executable and run from a clean directory 
+# The BUILDDIR loop mount is RW (read/write), knock yourself out! change stuff.
+# The menus are in BUILDIR/*.cfg, the preseed files in BUILDDIR/preseed/
+# BUILDDIR/preseed_ha.txt will be the default install in 32 bit. (as you will see in txt.cfg) 
+# The last couple of lines there and the BUILDDIR/payload/* files 
+# can be edited if you don't like mine. You can edit your LOCALE settings in BUILDDIR/text.cfg also.
+#
+# I suggest that you do NOT try this in windoze!!!!!
+#
+# dicko.
+
+BUILDDIR=sopusb
+
+# set up the  stageing environment
+if [ ! -f boot.img.gz ];then
+	echo "Getting boot.img.gz to make the image  . . ."
+ 	wget ftp://ftp.debian.org/debian/dists/stable/main/installer-i386/current/images/hd-media/boot.img.gz
+fi
+if [ ! -f $BUILDDIR.img ] ; then
+	echo "Seeding the $BUILDDIR.img image  . . ."
+	zcat boot.img.gz > $BUILDDIR.img
+fi
+mkdir -p $BUILDDIR
+if [ ! -f $BUILDDIR/disk.lbl ];then
+	echo "Mounting $BUILDDIR.img on $BUILDDIR . . ."
+	mount -o loop $BUILDDIR.img $BUILDDIR
+	echo Mounted
+fi
+
+if [ ! -f debian-6.0.1a-i386-netinst.iso ] ;then
+	echo "Getting debian-6.0.1a-i386-netinst.iso . . ."
+	wget http://cdimage.debian.org/debian-cd/current/i386/iso-cd/debian-6.0.1a-i386-netinst.iso
+fi
+
+if [ ! -f $BUILDDIR/debian-6.0.1a-i386-netinst.iso ]; then
+	echo "Copying  debian-6.0.1a-i386-netinst.iso into $BUILDDIR . . "
+	cp debian-6.0.1a-i386-netinst.iso $BUILDDIR
+fi
+
+echo "Updating the svn directories . . . "
+
+svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/isolinux/   isolinux
+svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/usb/syslinux/   syslinux
+svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/preseed/ preseed
+
+
+echo "Copying the needed syslinux structures int $BUILDDIR . . . "
+rsync --progress -av --exclude=".*" isolinux/*  $BUILDDIR
+rsync --progress -av --exclude=".*" syslinux/*  $BUILDDIR
+rsync --progress -av --exclude=".*" preseed  $BUILDDIR
+
+echo "Fix moving from cdrom to hd-media"
+
+sed -i "s:cdrom/:hd-media/:g" $BUILDDIR/*.cfg
+sed -i "s:cdrom/:hd-media/:g" $BUILDDIR/preseed/*
+
+echo "Fix the USB's concept of what the First Hard Drive actually is . . ."
+sed -i 's:^\s*localboot 0x80:\tmenu default\n\tlocalboot 0x81:' $BUILDDIR/menu.cfg
+
+# and remove old default and add a timeout 
+sed -i  '/menu default/d' $BUILDDIR/txt.cfg
+sed -i s'/timeout 0/timeout 900/' $BUILDDIR/syslinux.cfg 
+
+ 
+echo "fixing hardcoded hdds in /preseed/* "
+sed -i 's:/dev/sda:/dev/sdb:' $BUILDDIR/preseed/*
+
+########temporarily do  dicko stuff
+sed -i 's/preseed.txt/preseed_ha.txt/' $BUILDDIR/txt.cfg
+############# sorry Fede  ;)
+
+# get size of the required/state partition
+echo "This disribution will make a partition for the "State" of the machine"
+echo "useful in High Availability deployments"
+echo "If you have no use for this then make it 128 Meg big, no less or you will break it!"
+echo "A more useful size would be half the size of your hard-drive"
+
+read -t 30 -p 	"How many megabytes of the hard disk to reserve for '/state' (default is 3000) ? " STATE
+if [[ "$STATE" == ?(+|-)+([0-9]) ]] ; then 
+sed -i "s/3000 3000 3000/$STATE $STATE $STATE/" $BUILDDIR/preseed/preseed_ha.txt
+fi
+
+
+# this bit is to help those testing in  VirtualBox environment
+# 
+if  [ `which VirtualBox` -a ! -f $BUILDDIR.vmdk ]; then
+DEVICE=`mount|grep $BUILDDIR|awk '{print $1}'|tail -1`
+echo "Build a VirtualBox vmdk of $DEVICE called $BUILDDIR.vmdk . . ."
+	VBoxManage internalcommands createrawvmdk -filename $BUILDDIR.vmdk -rawdisk  $DEVICE
+echo "You can add it to a VBox machine with sata port 0 to boot from $BUILDDIR ."
+
+fi
+
+USBGUESS=`mount|grep '/dev/sd[b-z] ' |awk '{print $1}'|sort -r|tail -1`
+
+echo "When happy you can 'dd if=$BUILDDIR.img of=/dev/sdx bs=M count=239'"
+echo "Getting /dev/sdx wrong can 'Spoil your whole day', so caveat implementor "
+echo "My guess is it is $USBGUESS, if it was recently plugged in"
+echo
+echo "p.s. dont forget to umount $BUILDDIR when you are done messing with it :) "
+echo "	and delete the $BUILDDIR.vmdk file, and purge it from VirtualBox. "
+echo
+echo "p.p.s be careful, partman-auto does NOT like double spaces"
+echo "Enjoy, dicko"
+
+
+
+
+

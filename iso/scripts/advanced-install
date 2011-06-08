@@ -1,0 +1,101 @@
+#!/bin/bash
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888
+#  Y88b.                        888            888                    888 888     888 88888b  888
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888
+#
+#
+#                                8888888b.  888888b.  Y88b   d88P
+#                                888   Y88b 888  "88b  Y88b d88P
+#                                888    888 888  .88P   Y88o88P
+#                                888   d88P 8888888K.    Y888P
+#                                8888888P"  888  "Y88b   d888b
+#                                888        888    888  d88888b
+#                                888        888   d88P d88P Y88b
+#                                888        8888888P" d88P   Y88b
+#										switchedonpbx.org
+#
+# SwitchedON PBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+############################### START VARIABLES #######################################
+
+export DEBIAN_FRONTEND="noninteractive";
+
+
+#echo "Installing subversion"
+touch /etc/bash.bashrc
+apt-get -y install subversion &> /dev/null
+
+
+rm -rf /usr/src/scripts/ainstalar*
+
+#TAG:DOWNLOADING FROM SVN
+cd /usr/src
+svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/scripts https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/apt-key https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/programs https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/tools
+
+#TAG:COPY SCRIPTS AND TOOLS
+cp /usr/src/tools/* /usr/local/sbin/
+cp /usr/src/scripts/advanced-install /usr/local/sbin/
+
+#TAG:CHANGE PERMISSIONS
+chmod +x /usr/local/sbin/*
+
+#TAG:RUNNING common-install
+cat /etc/sop/sop-addons|grep common-install &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing common-install
+	bash /usr/src/scripts/common-install
+else
+	echo common-install already installed
+fi
+
+cd /usr/src/scripts/
+rm -rf /tmp/output*
+n=1
+packagenumber=`ls -1 /usr/src/scripts/ |grep -v install | wc -l`
+for pkg in `ls -1 /usr/src/scripts/ |grep -v install`
+    do
+        echo "$pkg $n off" >> /tmp/output.txt
+        n=$[n+1]
+done
+
+dialog --checklist "Choose addons to install:" 80 40 $packagenumber \
+$(cat /tmp/output.txt) 2>/tmp/output2.txt
+
+salida=$(cat /tmp/output2.txt)
+salida2=`echo ${salida//\"/}`
+
+rm -rf /tmp/output*
+
+echo $salida2 |awk '{ for (i = 1; i < NF+1; ++i) print $i }' > ainstalar.sh
+awk ' { print"bash " $0 } ' ainstalar.sh > ainstalar2.sh
+
+#Check if deselastixados is going to be installed. Install it the first, so all scripts install menuitems.
+SELECTED=`cat ainstalar2.sh | grep deselastixados`
+res=$?
+if [ $res -eq 0 ]; then
+	echo Selected deselaxtisados to install, putting it the first on the list, so menuitems are created from later scripts
+	sed '/deselastixados/d' ainstalar2.sh > ainstalar.sh
+	echo "bash deselastixados" > ainstalar2.sh
+	cat ainstalar.sh >> ainstalar2.sh
+fi
+
+rm ainstalar.sh
+bash ainstalar2.sh
+rm -rf /usr/src/scripts/ainstalar*
+
+# Remove init script
+sed -i '/advanced/d' /etc/bash.bashrc
+
+echo "These are the most relevant passwords for you system:"
+cat /etc/sop/passwords

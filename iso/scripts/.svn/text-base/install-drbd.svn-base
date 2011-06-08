@@ -1,0 +1,126 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# rkhunter - 12/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+
+# Install DRBD
+HELPINGWORDS="";
+
+PKGNAME=drbd
+
+
+DISK=`cat /etc/fstab|grep -E "\/state"|grep ext3|awk '{print $1}'`
+
+cd /usr/src
+mkdir -p drbd
+cd drbd
+wget http://oss.linbit.com/drbd/8.3/drbd-8.3.10.tar.gz
+tar -zxsvf drbd-8.3.10.tar.gz 
+cd drbd-8.3.10/
+apt-get install  -y flex vlan git 
+
+./configure --prefix=/usr --with-km --with-pacemaker --with-utils --sysconfdir=/etc
+make clean && make && make install
+modprobe 8021q
+vconfig add eth0 256
+ifconfig eth0.256 10.0.0.1 netmask 255.255.255.0 up
+	echo "10.256.0.1	pbx0
+	10.256.0.2	pbx1" >> /etc/hosts
+echo "8021q" >> /etc/modules
+hostname pbx0
+	echo pbx0 > /etc/hostname
+	echo "
+	auto eth0.256
+iface eth0.256 inet static
+	address 10.256.0.1
+	netmask 255.255.255.0
+	broadcast 10.256.0.255
+	vlan_raw_device eth0" >> /etc/network/interfaces 
+	sed -i "s|$DISK|#$DISK|" /etc/fstab
+#sed -i 's|/dev/sda4|#/dev/sda4|' /etc/fstab
+
+echo "global {
+	  usage-count no;
+}
+common {
+  protocol C;
+startup { become-primary-on pbx0; }
+}
+resource r0 {
+	protocol A;
+	startup	{ wfc-timeout 8; degr-wfc-timeout 5;}
+       syncer { rate 8000; }
+	handlers {
+    split-brain \"/usr/lib/drbd/notify-split-brain.sh root@localhost\";
+  }
+	net {
+    after-sb-0pri discard-younger-primary;
+    after-sb-1pri discard-secondary;
+    after-sb-2pri call-pri-lost-after-sb;
+  }
+	  on pbx0 {
+    device    /dev/drbd1;
+    disk      $DISK;
+    address   10.0.0.1:7789;
+    meta-disk internal;
+  }
+  on pbx1 {
+    device    /dev/drbd1;
+    disk      $DISK;
+    address   10.0.0.2:7789;
+    meta-disk internal ;
+  }
+}
+	" > /etc/drbd.conf
+	umount /state
+umount /drbdmetadata
+/etc/init.d/hostname.sh 
+#	dd if=/dev/zero of=/dev/sda4 bs=64k count=1
+dd if=/dev/zero of=$DISK bs=64k count=1
+modprobe drbd
+#drbdadm --force create-md  r0
+drbdmeta --force /dev/drbd1 v08 $DISK internal create-md r0
+service drbd restart
+drbdsetup /dev/drbd1  primary  -o
+mkfs.ext3 /dev/drbd1
+mount /dev/drbd1 /state
+
+
+sed -i '
+/exit 0/ i\
+mount /dev/drbd1 /state
+' /etc/rc.local
+
+update-rc.d drbd defaults
+
+#replicate
+#mkdir -p  /etc/asterisk /var/lib/asterisk /usr/lib/asterisk /var/spool/asterisk /var/lib/mysql /var/log/asterisk /var/www
+
+exit 0
+

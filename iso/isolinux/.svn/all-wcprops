@@ -1,0 +1,167 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svnroot/switchedonpbx/!svn/ver/640/iso/isolinux
+END
+instsel.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/instsel.cfg
+END
+prompt.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/prompt.cfg
+END
+exithelp.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/exithelp.cfg
+END
+isolinux.bin
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/isolinux.bin
+END
+adtxt.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/adtxt.cfg
+END
+splash.pcx
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/splash.pcx
+END
+f1.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f1.txt
+END
+f2.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f2.txt
+END
+f3.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f3.txt
+END
+f4.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f4.txt
+END
+f5.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f5.txt
+END
+f6.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f6.txt
+END
+f7.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f7.txt
+END
+f8.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f8.txt
+END
+f9.txt
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f9.txt
+END
+amdtxt.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/amdtxt.cfg
+END
+menu.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svnroot/switchedonpbx/!svn/ver/548/iso/isolinux/menu.cfg
+END
+mt86plus
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/mt86plus
+END
+f10.txt
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/f10.txt
+END
+amdadtxt.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/amdadtxt.cfg
+END
+ifcpu64.c32
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/ifcpu64.c32
+END
+isolinux.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/isolinux.cfg
+END
+boot.cat
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/boot.cat
+END
+vesamenu.c32
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/vesamenu.c32
+END
+splash.png
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/splash.png
+END
+stdmenu.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/switchedonpbx/!svn/ver/547/iso/isolinux/stdmenu.cfg
+END
+txt.cfg
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/switchedonpbx/!svn/ver/640/iso/isolinux/txt.cfg
+END

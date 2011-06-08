@@ -1,0 +1,4 @@
+default install-select
+label install-select
+    kernel ifcpu64.c32
+    append amd64-install -- install

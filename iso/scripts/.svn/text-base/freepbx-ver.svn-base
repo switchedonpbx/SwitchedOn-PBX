@@ -1,0 +1,353 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888
+#  Y88b.                        888            888                    888 888     888 88888b  888
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888
+#
+#
+#                                8888888b.  888888b.  Y88b   d88P
+#                                888   Y88b 888  "88b  Y88b d88P
+#                                888    888 888  .88P   Y88o88P
+#                                888   d88P 8888888K.    Y888P
+#                                8888888P"  888  "Y88b   d888b
+#                                888        888    888  d88888b
+#                                888        888   d88P d88P Y88b
+#                                888        8888888P" d88P   Y88b
+#										switchedonpbx.org
+# freepbx - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+############################### START VARIABLES #######################################
+#TAG:VARIABLES
+VER_FREEPBX="2.9.0";
+if [ $1 ]; then 
+	VER_FREEPBX=$1
+fi
+
+echo "We will install ${VER_FREEPBX} "
+
+#DATA_BASE
+ASTERISK_DB="asterisk";
+#USER_DATA
+ASTERISK_USER="asterisk_us";
+#MANAGER
+AMPMGR_USER="admin_mgr";
+#USERS_DEFOUT_WU
+ARI_ADMIN_USERNAME="switchedonpbx";
+FREEPBX_USER_WU="admin";
+#WWW_ROOT
+WWW_ROOT="/var/www/html";
+#SSH
+SSHPORT=$(cat /etc/ssh/sshd_config | grep '^Port' | grep -o '[0-9]*$');
+#TAG:RANDOMLY_GENERATE_PASSWORDS
+ASTERISK_DB_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+ASTERISK_MGR_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+FREEPBX_ADMIN_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+FREEPBX_ADMIN_PW_SHA1=`echo -n "${FREEPBX_ADMIN_PW}" | sha1sum | awk '{ print $1 }'`
+ARI_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+FOP_PW=`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`
+############################### END VARIABLES #######################################
+#TAG:CHECK IF ASTERISK ALREADY INSTALLED
+
+#TAG:INSTALL ASTERISK
+#Check if asterisk is installed. Otherwise install it
+cat /etc/sop/sop-addons|grep asterisk &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	cat /usr/src/scripts/ainstalar2.sh | grep asterisk-18-sources &>/dev/null
+	res=$?
+	if [ $res -eq 0 ]; then
+		echo Installing Asterisk from sources
+		bash /usr/src/scripts/asterisk-18-sources
+	fi
+	cat /usr/src/scripts/ainstalar2.sh | grep asterisk-18-debs &>/dev/null
+	res=$?
+	if [ $res -eq 0 ]; then
+		echo Installing Asterisk from debs
+		bash /usr/src/scripts/asterisk-18-debs
+	fi
+	cat /usr/src/scripts/ainstalar2.sh | grep asterisk-18-arm-sources &>/dev/null
+	res=$?
+	if [ $res -eq 0 ]; then
+		echo Installing Asterisk from sources
+		bash /usr/src/scripts/asterisk-18-arm-sources
+	fi
+		echo Installing Asterisk from debs
+		bash /usr/src/scripts/asterisk-18-debs
+else
+	echo Asterisk already installed
+fi
+
+
+#TAG:INSTALL LAMPP
+cat /etc/sop/sop-addons|grep lampp &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing lampp
+	bash /usr/src/scripts/install-lampp
+else
+	echo lampp already installed
+fi
+
+
+
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ $res -eq 0 ]; then
+	echo freepbx already installed
+	exit 0
+fi
+
+# Import passwords
+if [ -f /etc/sop/passwords ]; then
+. /etc/sop/passwords
+fi
+
+HELPINGWORDS="";
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+
+#TAG:Store random passwords needed for freepbx addon install
+echo "" >> /etc/sop/passwords
+echo "################ START FREEPBX PASSWORDS ###################" >> /etc/sop/passwords
+echo "# ASTERISK" >> /etc/sop/passwords
+echo "ASTERISK_DB=\"${ASTERISK_DB}\";" >> /etc/sop/passwords
+echo "ASTERISK_USER=\"${ASTERISK_USER}\";" >> /etc/sop/passwords
+echo "ASTERISK_DB_PW=\"${ASTERISK_DB_PW}\";" >> /etc/sop/passwords
+echo "" >> /etc/sop/passwords
+echo "# ASTERISK MANAGER INTERFACE (AMI)" >> /etc/sop/passwords
+echo "AMPMGR_USER=\"${AMPMGR_USER}\";" >> /etc/sop/passwords
+echo "ASTERISK_MGR_PW=\"${ASTERISK_MGR_PW}\";" >> /etc/sop/passwords
+echo "" >> /etc/sop/passwords
+echo "# ARI PASSWORDS" >> /etc/sop/passwords
+echo "ARI_ADMIN_USERNAME=\"${ARI_ADMIN_USERNAME}\";" >> /etc/sop/passwords
+echo "ARI_ADMIN_PASSWORD=\"${ARI_PW}\";" >> /etc/sop/passwords
+echo "" >> /etc/sop/passwords
+echo "# FREEPBX WEB GUI" >> /etc/sop/passwords
+echo "FREEPBX_USER_WU=\"${FREEPBX_USER_WU}\";" >> /etc/sop/passwords
+echo "FREEPBX_ADMIN_PW=\"${FREEPBX_ADMIN_PW}\";" >> /etc/sop/passwords
+#echo "FREEPBX_ADMIN_PW_SHA1=\"${FREEPBX_ADMIN_PW_SHA1}\";" >> /etc/sop/passwords
+echo "VER_FREEPBX=\"${VER_FREEPBX}\";" >> /etc/sop/passwords
+echo "" >> /etc/sop/passwords
+echo "# FLASH OPERATOR PANEL" >> /etc/sop/passwords
+echo "FOP_PW=\"${FOP_PW}\";" >> /etc/sop/passwords
+echo "################ END FREEPBX PASSWORDS #####################" >> /etc/sop/passwords
+
+PACKAGES="mpg123 sox lame libmad0 libmad0-dev curl libapr1 libaprutil1 libsqlite3-0 libnetpbm10-dev giflib-tools php-mail php-mail-mime php-file psutils wdiff rsync atftpd libgnutls-dev libogg-dev python-setuptools python-mysqldb python-sqlalchemy python-psycopg2"
+
+PKGNAME=freepbx
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+#mkdir -p /etc/sop/
+#if [ -f /etc/sop/sop-addons ]; then
+#	sed -i '/${PKGNAME}/d' /etc/sop/sop-addons
+#fi
+
+export DEBIAN_FRONTEND="noninteractive";
+
+#TAG:INSTALLING DEPENDENCIES
+aptitude install -y $PACKAGES
+
+#TAG:RECONFIGURING APACHE2
+cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf.bkp
+sed -i "s/\(^User *\)\(.*\)/\1asterisk/" /etc/apache2/apache2.conf
+sed -i "s/\(^Group *\)\(.*\)/\1asterisk/" /etc/apache2/apache2.conf
+/etc/init.d/apache2 force-reload
+
+#TAG:EXTRACTING TEMPORARY FILES
+echo ""
+echo "<<<<<<<<<<  EXTRACTING TEMPORARY FILES  >>>>>>>>>>"
+cd /usr/src/
+wget http://mirror.freepbx.org/freepbx-${VER_FREEPBX}.tar.gz
+tar zxf freepbx-${VER_FREEPBX}.tar.gz
+cd freepbx-${VER_FREEPBX}
+
+#TAG:PREPARING ASTERISK INSTALLATION
+echo ""
+echo "<<<<<<<<<<  PREPARING ASTERISK INSTALLATION  >>>>>>>>>>"
+
+#fix
+#mv /etc/asterisk/iax.conf /etc/asterisk/sip.conf.backup-`date +%Y.%m.%d.%Hh.%mm`
+#mv /etc/asterisk/ccss.conf /etc/asterisk/ccss.conf.backup-`date +%Y.%m.%d.%Hh.%mm`
+#mv /etc/asterisk/extensions.conf /etc/asterisk/extensions.conf.backup-`date +%Y.%m.%d.%Hh.%mm`
+#mv /etc/asterisk/features.conf /etc/asterisk/features.conf.backup-`date +%Y.%m.%d.%Hh.%mm`
+#mv /etc/asterisk/sip.conf /etc/asterisk/sip.conf.backup-`date +%Y.%m.%d.%Hh.%mm`
+mv /etc/asterisk/sip_notify.conf /etc/asterisk/sip_notify.conf.backup-`date +%Y.%m.%d.%Hh.%mm`
+
+echo ""
+echo "<<<<<<<<<<  CONFIGURE FREEPBX  >>>>>>>>>>"
+
+mkdir -p ${WWW_ROOT}
+cp /usr/src/freepbx-${VER_FREEPBX}/install_amp /usr/src/freepbx-${VER_FREEPBX}/install_amp.bkp
+perl -pi -e "s,/var/www/html,${WWW_ROOT},g" /usr/src/freepbx-${VER_FREEPBX}/install_amp
+sed -i "s,\(^\$webroot*\)\(.*\),\1 = \"${WWW_ROOT}\";," /usr/src/freepbx-${VER_FREEPBX}/install_amp
+sed -i "s/xx.xx.xx.xx/${IP_ADRESS}/g" "/usr/src/freepbx-${VER_FREEPBX}/install_amp"
+chmod 755 /usr/src/freepbx-${VER_FREEPBX}/install_amp
+cd /usr/src/freepbx-${VER_FREEPBX}/
+
+#TAG:CONFIGURE AMPORTAL
+echo ""
+echo "<<<<<<<<<<  CONFIGURE AMPORTAL  >>>>>>>>>>>"
+cp /usr/src/freepbx-${VER_FREEPBX}/amportal.conf /etc/amportal.conf
+chown asterisk:asterisk /etc/amportal.conf
+sed -i "s/\(AMPDBHOST= *\)\(.*\)/\1localhost/" /etc/amportal.conf
+sed -i "s/# AMPDBUSER=asteriskuser/AMPDBUSER=${ASTERISK_USER} /g" "/etc/amportal.conf"
+sed -i "s/# AMPDBPASS=amp109/AMPDBPASS=${ASTERISK_DB_PW}/g" "/etc/amportal.conf"
+sed -i "s/\(AMPMGRUSER= *\)\(.*\)/\1${AMPMGR_USER}/" /etc/amportal.conf
+sed -i "s/\(AMPMGRPASS= *\)\(.*\)/\1${ASTERISK_MGR_PW}/" /etc/amportal.conf
+sed -i "s/AMPWEBADDRESS=/AMPWEBADDRESS=${IP_ADDRESS}/" /etc/amportal.conf
+sed -i "s/\(FOPPASSWORD= *\)\(.*\)/\1${FOP_PW}/" /etc/amportal.conf
+sed -i "s/\(ARI_ADMIN_USERNAME= *\)\(.*\)/\1${ARI_ADMIN_USERNAME}/" /etc/amportal.conf
+sed -i "s/\(ARI_ADMIN_PASSWORD= *\)\(.*\)/\1${ARI_PW}/" /etc/amportal.conf
+sed -i "s/\(AUTHTYPE *= *\)\(.*\)/\1database/" /etc/amportal.conf
+sed -i "s/# ZAP2DAHDICOMPAT=true|false/ZAP2DAHDICOMPAT=true/g" "/etc/amportal.conf"
+echo "AMPDBNAME=${ASTERISK_DB}" >> /etc/amportal.conf
+echo "ASTETCDIR=/etc/asterisk" >> /etc/amportal.conf
+echo "ASTMODDIR=/usr/lib/asterisk/modules" >> /etc/amportal.conf
+echo "ASTVARLIBDIR=/var/lib/asterisk" >> /etc/amportal.conf
+echo "ASTAGIDIR=/var/lib/asterisk/agi-bin" >> /etc/amportal.conf
+echo "ASTSPOOLDIR=/var/spool/asterisk" >> /etc/amportal.conf
+echo "ASTRUNDIR=/var/run/asterisk" >> /etc/amportal.conf
+echo "ASTLOGDIR=/var/log/asterisk" >> /etc/amportal.conf
+echo "AMPDEVUSER=asterisk" >> /etc/amportal.conf
+echo "AMPDEVGROUP=asterisk" >> /etc/amportal.conf
+echo "AMPASTERISKUSER=asterisk" >> /etc/amportal.conf
+echo "AMPASTERISKGROUP=asterisk" >> /etc/amportal.conf
+echo "AMPASTERISKWEBUSER=asterisk" >> /etc/amportal.conf
+echo "AMPASTERISKWEBGROUP=asterisk" >> /etc/amportal.conf
+echo "SSHPORT=${SSHPORT}" >> /etc/amportal.conf
+
+
+###################################################################################################
+#TAG:PARTE 2 - INSTALATION FREEPBX
+echo ""
+echo "<<<<<<<<<<  PARTE 2 - INSTALATION FREEPBX  >>>>>>>>>>"
+
+echo "CREATE DATABASE IF NOT EXISTS asteriskcdrdb;" | mysql -u root -p${MYSQL_ROOT_PW}
+echo "CREATE DATABASE IF NOT EXISTS ${ASTERISK_DB};" | mysql -u root -p${MYSQL_ROOT_PW}
+echo "GRANT ALL PRIVILEGES ON asteriskcdrdb.* TO ${ASTERISK_USER}@localhost IDENTIFIED BY '${ASTERISK_DB_PW}';" | mysql -u root -p${MYSQL_ROOT_PW}
+echo "GRANT ALL PRIVILEGES ON ${ASTERISK_DB}.* TO ${ASTERISK_USER}@localhost IDENTIFIED BY '${ASTERISK_DB_PW}';" | mysql -u root -p${MYSQL_ROOT_PW}
+
+sed -i "s/\(CREATE TABLE cdr\)/DROP TABLE IF EXISTS \`cdr\`;\n\1/" /usr/src/freepbx-${VER_FREEPBX}/SQL/cdr_mysql_table.sql
+mysql -u${ASTERISK_USER} -p${ASTERISK_DB_PW} asteriskcdrdb < /usr/src/freepbx-${VER_FREEPBX}/SQL/cdr_mysql_table.sql
+mysql -u${ASTERISK_USER} -p${ASTERISK_DB_PW} ${ASTERISK_DB} < /usr/src/freepbx-${VER_FREEPBX}/SQL/newinstall.sql
+
+#fix
+#mkdir -p /var/lib/asterisk/bin
+#chown -R asterisk.asterisk /var/lib/asterisk/bin
+#echo "
+#!/bin/bash
+#killall -HUP op_server.pl" > /var/lib/asterisk/bin/bounce_op.sh
+#chown asterisk:asterisk /var/lib/asterisk/bin/bounce_op.sh
+
+#TAG:INSTALATION FREEPBX
+echo ""
+echo "<<<<<<<<<<  INSTALATION FREEPBX  >>>>>>>>>>"
+/etc/init.d/asterisk restart
+#./start_asterisk start
+./install_amp --username=${ASTERISK_USER} --password=${ASTERISK_DB_PW}
+./apply_conf.sh
+
+#TAG:RECONFIGURING /etc/rc.local
+cat > /etc/rc.local <<ENDLINE
+#!/bin/sh -e
+# 
+#rc.local - 16/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+#
+## Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+/usr/local/sbin/amportal start
+exit 0
+ENDLINE
+
+##################################################################################################
+###################################################################################################
+
+#TAG:Create FreePBX symlinks
+ln -s ${WWW_ROOT}/admin/modules/core/etc/* /etc/asterisk/
+chown -R asterisk.asterisk ${WWW_ROOT}
+
+sed -i "s/\(format=*\)\(.*\)/\1wav/" /etc/asterisk/vm_general.inc
+sed -i "s/\(format=*\)\(.*\)/\1wav/" /etc/asterisk/vm_general.inc
+
+#TAG:FREEPBX MOD PASSWORD
+echo "UPDATE \`${ASTERISK_DB}\`.\`ampusers\` SET \`password_sha1\` = '${FREEPBX_ADMIN_PW_SHA1}' WHERE \`ampusers\`.\`username\` = 'admin';" | mysql -u root -p${MYSQL_ROOT_PW}
+
+#TAG:RECONFIGURE ARI USER AND PASSWORD
+sed -i "s/\(ARI_ADMIN_USERNAME= *\)\(.*\)/\1${ARI_ADMIN_USERNAME}/" /etc/amportal.conf
+echo "UPDATE \`${ASTERISK_DB}\`.\`freepbx_settings\` SET \`value\` = '${ARI_ADMIN_USERNAME}' WHERE \`freepbx_settings\`.\`keyword\` = 'ARI_ADMIN_USERNAME';" | mysql -u root -p${MYSQL_ROOT_PW}
+
+sed -i "s/\(ARI_ADMIN_PASSWORD= *\)\(.*\)/\1${ARI_PW}/" /etc/amportal.conf
+echo "UPDATE  \`${ASTERISK_DB}\`.\`freepbx_settings\` SET \`value\` =  '${ARI_PW}' WHERE  \`freepbx_settings\`.\`keyword\` =  'ARI_ADMIN_PASSWORD';"  | mysql -u root -p${MYSQL_ROOT_PW}  
+
+
+#TAG:UPDATE FREEPBX
+
+#if [ $1 -eq "basic" ]; then
+	/var/lib/asterisk/bin/module_admin upgradeall
+	/var/lib/asterisk/bin/module_admin reload
+#else
+#	/var/lib/asterisk/bin/module_admin -R standard,extended installall
+#	wget http://mirror.freepbx.org/modules/release/contributed_modules/customcontexts-2.8.0rc1.1.tgz -O - | tar xzvf -
+#	mv customcontexts /var/www/html/admin/modules/
+#	chown -R asterisk.asterisk /var/www/html/admin/modules/customcontexts
+#	/var/lib/asterisk/bin/module_admin install customcontexts
+#	/var/lib/asterisk/bin/module_admin upgradeall
+#	/var/lib/asterisk/bin/module_admin reload
+#fi
+
+#TAG:APPLY NICE VISUAL SETTINGS TO FREEPBX
+cd /usr/src/programs/
+tar xfvz freepbx_graph_update_v22dec2010.tgz
+cp -f freepbx_graph_update/common/mainstyle.css ${WWW_ROOT}/admin/common/
+cp -R -f freepbx_graph_update/images/* ${WWW_ROOT}/admin/images/
+
+
+#TAG:FIX FOR OPENVZ COMPATIBILITY
+sed -i 's/chown $AMPASTERISKUSER \/dev\/tty9/#chown $AMPASTERISKUSER \/dev\/tty9/g' /var/lib/asterisk/bin/freepbx_engine
+
+#TAG:RECONFIGURE TFTP
+echo ""
+echo "<<<<<<<<<<  RECONFIGURATION TFTP  >>>>>>>>>"
+echo "tftp            dgram   udp     wait    nobody  /usr/sbin/tcpd  /usr/sbin/in.tftpd /tftpboot" > /etc/inetd.conf
+mkdir /tftpboot
+chown asterisk:asterisk -R /tftpboot
+chmod 777 /tftpboot
+
+#Fix symlinks
+rm -rf /etc/asterisk/ccss.conf
+ln -s /var/www/html/admin/modules/campon/etc/ccss.conf /etc/asterisk/ccss.conf
+
+#TAG:CHANGE PERMISSIONS
+chown -R asterisk.asterisk ${WWW_ROOT}
+rm /var/www/html/index.html
+updatedb
+#TAG:DELETE NOTIFICATIONS FIX
+mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from notifications" ${ASTERISK_DB}
+/usr/local/sbin/amportal restart
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+
+exit 0

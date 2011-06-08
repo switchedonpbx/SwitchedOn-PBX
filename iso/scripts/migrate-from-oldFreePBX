@@ -1,0 +1,48 @@
+#!/bin/bash
+
+read -p "Server ? " SERVER_MIGRATE
+read -p "Port ? " SSHPORT_MIGRATE
+/var/lib/asterisk/bin/ampbackup.pl "state" yes yes yes yes yes
+
+
+
+/usr/src/scripts/xchangekeys ${SERVER_MIGRATE} ${SSHPORT_MIGRATE}
+
+echo " You should next be logged into  the server you are trying to migrate from."
+echo " to exit the  ssh shell type exit"
+ssh -p $SSHPORT_MIGRATE root@$SERVER_MIGRATE  
+echo " We will now run a FreePBX backup of the server."
+echo " This will take a LONG TIME on a big or old server"
+echo " please be patient.  . . . ."
+
+#ssh -p $SSHPORT_MIGRATE root@$SERVER_MIGRATE mkdir -p /var/lib/asterisk/backups/Migrate
+
+
+
+#ssh -p $SSHPORT_MIGRATE root@$SERVER_MIGRATE /var/lib/asterisk/bin/ampbackup.pl "Migrate" yes yes yes yes yes
+
+echo " We  will now transfer that backup to your local Server, Please wait . . ."
+mkdir -p /var/lib/asterisk/backups/Migrate
+
+rsync -e "ssh -p $SSHPORT_MIGRATE"  -av  --progress root@${SERVER_MIGRATE}:/var/lib/asterisk/backups/Migrate/ /var/lib/asterisk/backups/Migrate/
+
+
+
+
+echo " Now we will rsync any monitor files"
+echo " This will also take a long time"
+
+rsync -e "ssh -p $SSHPORT_MIGRATE"  -av  --progress root@${SERVER_MIGRATE}:/var/spool/asterisk/monitor /var/spool/asterisk
+
+
+
+echo " And now any Hylafax oand Avantfax files"
+echo " again please be patient .  ."
+
+rsync -e "ssh -p $SSHPORT_MIGRATE"  -av  --progress root@${SERVER_MIGRATE}:/var/spool/hylafax /var/spool/
+
+
+
+echo "Please go to https://localhost/admin/ and  restore Your Backup"
+echo "That's all folks"
+

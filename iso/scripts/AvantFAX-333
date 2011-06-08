@@ -1,0 +1,378 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# AvantFAX-3.3.3 - 12/05/2011
+#
+# switched on pbx-1.0
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Author: Federico Pereira <info@opentecnologic.com>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+############################### START VARIABLES #######################################
+if [ -f /etc/sop/passwords ]; then
+sed -i "/AVANTFAX/d" /etc/sop/passwords
+. /etc/sop/passwords
+fi
+WWW_ROOT="/var/www/html"
+PKGNAME="AvantFAX";
+AVANTFAX_DB="avantfax";
+AVANTFAX_DB_USER="avantfax_us";
+AVANTFAX_DB_PW="`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`";
+#AVANTFAX_WEB_USER="avantfaxwebuser";
+#AVANTFAX_WEB_PW="`head -c 200 /dev/urandom | tr -cd 'A-Za-z0-9' | head -c 20`";
+AVANTFAX_FAXDOMAIN="fax.mydomain.org";
+
+PACKAGES="rsync postfix imagemagick libtiff4-dev libungif-bin libgif-dev psutils gs php-mdb2-driver-mysql rsync hylafax-server"
+
+mkdir -p ${WWW_ROOT}
+# The installation directory for AvantFAX
+INSTDIR=${WWW_ROOT}/avantfax
+# The root directory where HylaFAX bin files are stored (typically, /usr or /usr/local)
+HYLADIR=/usr
+# HylaFAX $SPOOL directory (typically, /var/spool/hylafax or /var/spool/fax)
+SPOOL=/var/spool/hylafax
+# The user and group which Apache runs as (typically, apache, wwwrun, nobody, etc...)
+HTTPDUSER=asterisk
+HTTPDGROUP=asterisk
+############################################ END VARIABLES ###########################################################
+
+export DEBIAN_FRONTEND="noninteractive";
+
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#Check if freepbx is already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep freepbx &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing freepbx
+	bash /usr/src/scripts/freepbx
+else
+	echo freepbx already installed
+fi
+
+if [ -f /etc/sop/passwords ]; then
+. /etc/sop/passwords
+fi
+
+# INSTALL REQUIRED PACKAGES
+echo "Installing required dependencies"
+aptitude -y install ${PACKAGES}
+
+#Check if iaxmodems are already installed. Otherwise install it
+cat /etc/sop/sop-addons|grep iaxmodems &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing iaxmodems
+	bash /usr/src/scripts/install-iaxmodems
+else
+	echo iaxmodems already installed
+fi
+
+#TAG: STORING PASSWORDS INTO /etc/sop/passwords
+#Delete paragraphs that contain AVANTFAX in /etc/sop/passwords
+if [ -f /etc/sop/passwords ]; then
+sed -i '/AVANTFAX/d' /etc/sop/passwords
+fi
+sed -i '/^$/N;/\n$/N;//D' /etc/sop/passwords
+echo "
+#AVANTFAX PASSWORDS" >> /etc/sop/passwords
+echo "AVANTFAX_DB=\"${AVANTFAX_DB}\";" >> /etc/sop/passwords
+echo "AVANTFAX_DB_USER=\"${AVANTFAX_DB_USER}\";" >> /etc/sop/passwords
+echo "AVANTFAX_DB_PW=\"${AVANTFAX_DB_PW}\";" >> /etc/sop/passwords
+#echo "AVANTFAX_WEB_USER=\"${AVANTFAX_WEB_USER}\";" >> /etc/sop/passwords
+#echo "AVANTFAX_WEB_PW=\"${AVANTFAX_WEB_PW}\";" >> /etc/sop/passwords
+echo "AVANTFAX_FAXDOMAIN=\"${AVANTFAX_FAXDOMAIN}\";" >> /etc/sop/passwords
+
+if [ -d /usr/src/avantfax-3.3.3 ]; then
+rm -rf /usr/src/avantfax-3.3.3*
+fi
+cd /usr/src/
+wget http://downloads.sourceforge.net/project/avantfax/avantfax-3.3.3.tgz
+tar xfvz avantfax-3.3.3.tgz > /dev/null
+cd avantfax-3.3.3/
+
+echo "Installing AvantFAX and configuring HylaFAX"
+
+## SETUP SMARTY
+chmod 0770 avantfax/includes/templates/admin_theme/templates_c/ avantfax/includes/templates/admin_theme/cache/  avantfax/includes/templates/main_theme/templates_c/ avantfax/includes/templates/main_theme/cache/
+chown $HTTPDUSER:$HTTPDGROUP avantfax/includes/templates/admin_theme/templates_c/ avantfax/includes/templates/admin_theme/cache/  avantfax/includes/templates/main_theme/templates_c/ avantfax/includes/templates/main_theme/cache/
+
+chmod 0755 avantfax/includes/faxcover.php avantfax/includes/faxrcvd.php avantfax/includes/notify.php avantfax/tools/update_contacts.php avantfax/tools/faxcover.php avantfax/includes/avantfaxcron.php avantfax/includes/dynconf.php
+
+cp avantfax/includes/local_config-example.php avantfax/includes/local_config.php
+
+# INSTALL AVANTFAX
+
+echo "Backing up old AvantFAX"
+# If instdir exists, backup and delete it
+directory="${INSTDIR}"
+# bash check if directory exists
+if [ -d $directory ]; then
+	echo "Directory exists, backing up in /root/backups/avantfax-`date +%Y.%m.%d.%Hh.%mm`.tar.gz"
+	mkdir -p /root/backups/avantfax/
+	tar cfvz /root/backups/avantfax/avantfax-`date +%Y.%m.%d.%Hh.%mm`.tar.gz $INSTDIR > /dev/null
+	rm -rf $INSTDIR
+else
+	echo "Directory ${INSTDIR} does not exist. Creating it"
+fi
+
+mv avantfax ${WWW_ROOT}
+
+# echo "AdminGroup: apache" >> /var/spool/hylafax/etc/hfaxd.conf
+
+echo "CoverCmd:		$INSTDIR/includes/faxcover.php" >> /var/spool/hylafax/etc/sendfax.conf
+
+# SETUP AVANTFAX JOBFMT
+
+cat /var/spool/hylafax/etc/hyla.conf|grep AvantFAX &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+cat >> /var/spool/hylafax/etc/hyla.conf << EOF
+
+#
+## JobFmt for AvantFAX
+#
+JobFmt: "%-3j %3i %1a %15o %40M %-12.12e %5P %5D %7z %.25s"
+
+EOF
+else
+echo "hyla.conf already modified"
+fi
+
+chown -R $HTTPDUSER.$HTTPDGROUP $INSTDIR
+chmod -R 0770 $INSTDIR/tmp $INSTDIR/faxes
+chown -R $HTTPDUSER.uucp $INSTDIR/tmp $INSTDIR/faxes
+
+# DISABLE SELINUX FOR APACHE
+
+
+# CONFIGURE AVANTFAX VIRTUALHOST
+
+
+#cat >> /etc/apache2/sites-enabled/000-default << EOF
+#
+#<VirtualHost *:80>
+#    DocumentRoot $INSTDIR
+#    ServerName avantfax
+#    ErrorLog logs/avantfax-error_log
+#    CustomLog logs/avantfax-access_log common
+#</VirtualHost>
+#EOF
+
+
+# START APACHE
+/etc/init.d/apache2 restart
+
+# IMPORT MYSQL DATABASE
+/etc/init.d/mysql start
+
+echo "## Creating ${AVANTFAX_DB} MySQL database ##"
+#TAG:CREATE USER
+echo "Deleting existing mysql user if present"
+mysql -uroot -p${MYSQL_ROOT_PW} -e "delete from user where User='${AVANTFAX_DB_USER}'" mysql
+echo "Recreating mysql user ${AVANTFAX_DB_USER}"
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${AVANTFAX_DB}.* TO ${AVANTFAX_DB_USER}@localhost IDENTIFIED BY \"${AVANTFAX_DB_PW}\"" mysql
+
+# Create database, backup old one if exists
+mkdir -p /root/backups/avantfax/
+mysqldump -uroot -p${MYSQL_ROOT_PW} ${AVANTFAX_DB} | gzip -9 > /root/backups/avantfax/${AVANTFAX_DB}db-`date +%Y.%m.%d.%Hh.%mm`.sql.gz
+mysqladmin  -uroot -p${MYSQL_ROOT_PW} --force drop ${AVANTFAX_DB}
+mysqladmin --default-character-set=utf8 -uroot -p${MYSQL_ROOT_PW} create ${AVANTFAX_DB}
+mysql -uroot -p${MYSQL_ROOT_PW} -e "GRANT ALL ON ${AVANTFAX_DB}.* TO ${AVANTFAX_DB_USER}@localhost IDENTIFIED BY \"${AVANTFAX_DB_PW}\"" mysql
+mysql -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} ${AVANTFAX_DB} < /usr/src/avantfax-3.3.3/create_tables.sql
+# debug: show database
+#mysqlshow -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} ${AVANTFAX_DB}
+#fi
+
+# SYMLINK AVANTFAX SCRIPTS
+if [ -e $SPOOL/bin/faxrcvd.php ]; then
+mv $SPOOL/bin/faxrcvd.php $SPOOL/bin/faxrcvd-`date +%Y.%m.%d.%Hh.%mm`.php
+fi
+if [ -e $SPOOL/bin/dynconf.php ]; then
+mv $SPOOL/bin/dynconf.php $SPOOL/bin/dynconf-`date +%Y.%m.%d.%Hh.%mm`.php
+fi
+if [ -e $SPOOL/bin/notify.php ]; then
+mv $SPOOL/bin/notify.php $SPOOL/bin/notify-`date +%Y.%m.%d.%Hh.%mm`.php
+fi
+ln -s $INSTDIR/includes/faxrcvd.php $SPOOL/bin/faxrcvd.php
+ln -s $INSTDIR/includes/dynconf.php $SPOOL/bin/dynconf.php
+ln -s $INSTDIR/includes/notify.php  $SPOOL/bin/notify.php
+
+# FIX FILEINFO
+mv /usr/share/misc/magic.mgc /usr/share/misc/magic`date +%Y.%m.%d.%Hh.%mm`.mgc
+mv /usr/share/misc/magic /usr/share/misc/magic`date +%Y.%m.%d.%Hh.%mm`
+ln -s /usr/share/file/magic* /usr/share/misc/
+
+# SETUP SUDO PERMISSIONS
+echo "Setting up sudo"
+
+cat /etc/sudoers | grep -v requiretty | grep -v faxadduser> /tmp/sudoers
+echo "$HTTPDUSER ALL= NOPASSWD: /sbin/reboot, /sbin/halt, /usr/sbin/faxdeluser, /usr/sbin/faxadduser -u * -p * *" >> /tmp/sudoers
+mv /etc/sudoers /etc/sudoers.orig
+mv /tmp/sudoers /etc/sudoers
+chmod 0440 /etc/sudoers
+chown root.root  /etc/sudoers
+
+
+# Make backup of HylaFAX configuration
+
+tar cfvz /root/backups/avantfax/hylafax-`date +%Y.%m.%d.%Hh.%mm`.tar.gz /var/spool/hylafax/etc/config* ${SPOOL}/etc > /dev/null
+
+# CONFIGURE MODEMS TO USE AVANTFAX
+
+for i in `ls /var/spool/hylafax/etc/config.*`; do
+if [ "$i" != "/var/spool/hylafax/etc/config.sav" ]; then
+  if [ "$i" != "/var/spool/hylafax/etc/config.devid" ]; then
+    tilde=`echo $i | grep '~'`
+    if [ "$?" -eq "1" ]; then
+      if [ ! -L $i ]; then
+cat >> $i << EOF
+#
+## AvantFAX
+#
+FaxRcvdCmd:     bin/faxrcvd.php
+DynamicConfig:  bin/dynconf.php
+UseJobTSI:      true
+
+EOF
+      fi
+    fi
+  fi
+fi
+done
+
+cat >>  /var/spool/hylafax/etc/config << EOF
+
+#
+## AvantFAX
+#
+NotifyCmd:      bin/notify.php
+
+EOF
+
+# ADD MODEMS TO DATABASE
+
+for i in `ls /var/spool/hylafax/etc/config.*`; do
+if [ "$i" != "/var/spool/hylafax/etc/config.sav" ]; then
+  if [ "$i" != "/var/spool/hylafax/etc/config.devid" ]; then
+    tilde=`echo $i | grep '~'`
+    if [ "$?" -eq "1" ]; then
+      if [ -f $i ]; then
+        modem=`echo $i | awk -F'/' '{print $6}' | awk -F'.' '{print $2}'`
+
+        # ADD MODEMS TO AVANTFAX DATABASE
+        mysql -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} -e "INSERT INTO Modems SET device='$modem', alias ='$modem'" ${AVANTFAX_DB}
+        echo "Configuring $modem for AvantFAX"
+      fi
+    fi
+  fi
+fi
+done
+
+# ADD CRONTAB ENTRIES
+
+echo "Setting up /etc/cron.d/avantfax"
+printf "0 0 * * *\t$INSTDIR/includes/avantfaxcron.php -t 2\n" > /etc/cron.d/avantfax
+
+echo -e "Installation complete\n\n"
+
+#INTERFACE & IP_ADRESS
+INTERFACE_TMP=`ip ro|grep default| awk '{ print $5}'`
+if [ $INTERFACE_TMP == "venet0" ]  ; then
+INTERFACE="$INTERFACE_TMP:0";
+fi
+INTERFACE=$INTERFACE_TMP
+IP_ADRESS=`ifconfig $INTERFACE | grep 'inet addr:' | cut -d: -f2 | awk '{ print \$1}'`;
+
+#Change database settings in config.php
+sed -i "s/'AFDB_USER',\t'avantfax'/'AFDB_USER',\t'${AVANTFAX_DB_USER}'/" /var/www/html/avantfax/includes/config.php
+sed -i "s/'AFDB_PASS',\t'd58fe49'/'AFDB_PASS',\t'${AVANTFAX_DB_PW}'/" /var/www/html/avantfax/includes/config.php
+sed -i "s/'AFDB_NAME',\t'avantfax'/'AFDB_NAME',\t'${AVANTFAX_DB}'/" /var/www/html/avantfax/includes/config.php
+sed -i "s/'AFDB_USER',\t\t'avantfax'/'AFDB_USER',\t\t'${AVANTFAX_DB_USER}'/" /var/www/html/avantfax/includes/local_config.php
+sed -i "s/'AFDB_PASS',\t\t'd58fe49'/'AFDB_PASS',\t\t'${AVANTFAX_DB_PW}'/" /var/www/html/avantfax/includes/local_config.php
+sed -i "s/'AFDB_NAME',\t\t'avantfax'/'AFDB_NAME',\t\t'${AVANTFAX_DB}'/" /var/www/html/avantfax/includes/local_config.php
+
+# Adds deselastixados menuitem
+
+PKGNAME="AvantFAX-333";
+
+exists=`sqlite3 /var/www/db/acl.db "select * from acl_resource;"|grep ${PKGNAME}`
+res=$?
+if [ ! $res -eq 0 ]; then
+	echo Installing ${PKGNAME} deselastixados menuitem
+	last_resource=`sqlite3 /var/www/db/acl.db "select * from acl_resource;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	resource_to_use=`expr $last_resource + 1` 
+	last_permission=`sqlite3 /var/www/db/acl.db "select * from acl_group_permission;" | awk -F "|" '1 { print  $1 }' | tail -1` 
+	group_permission_to_use=`expr $last_permission + 1` 
+	sqlite3 /var/www/db/menu.db  "insert into menu (id,IdPArent,Link,Name,Type,order_no) values ('${PKGNAME}','fax','/avantfax','${PKGNAME}','framed','44');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_resource (id,name,description) values ('$resource_to_use','${PKGNAME}','${PKGNAME}');" 
+	sqlite3 /var/www/db/acl.db  "insert into acl_group_permission (id,id_action,id_group,id_resource) values ('$group_permission_to_use',1,1,'$resource_to_use');" 
+	# Add translations to all lang files
+	for i in `ls -1 /var/www/html/lang/`; do 
+	mv /var/www/html/lang/$i /var/www/html/lang/$i.backup
+	sed '/^\$arrLang=array/a \"${PKGNAME}\" => \"${PKGNAME}\",' /var/www/html/lang/$i.backup > /var/www/html/lang/$i
+	done;
+	rm -rf /var/www/html/lang/*.backup
+else
+echo ${PKGNAME} menuitem already installed
+fi
+
+#Add asterisk to hosts.hfaxd
+sed '/127.0.0.1/d' /var/spool/hylafax/etc/hosts.hfaxd > /var/spool/hylafax/etc/hosts.hfaxd.backup
+echo "127.0.0.1" > /var/spool/hylafax/etc/hosts.hfaxd
+cat /var/spool/hylafax/etc/hosts.hfaxd.backup >> /var/spool/hylafax/etc/hosts.hfaxd
+rm /var/spool/hylafax/etc/hosts.hfaxd.backup
+
+/etc/init.d/hylafax restart
+
+faxadduser -a -p asterisk
+
+# Change default web admin user
+#TAG:CHANGE ADMIN USER AND PASS FOR ${AVANTFAX_WEB_USER} AND ${AVANTFAX_WEB_PW}
+#echo "update users set password='`echo -n ${AVANTFAX_WEB_PW}|sha1sum|cut -d ' ' -f 1`' where login='admin';"|mysql -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} zPresence
+#echo "update users set login='${AVANTFAX_WEB_USER}' where password='${AVANTFAX_WEB_PW_SHA1}';"|mysql -u${AVANTFAX_DB_USER} -p${AVANTFAX_DB_PW} zPresence
+
+
+echo "********************************************************************************"
+echo "*"
+echo "*"
+echo "*"
+echo "* Now you can go to https://yourserver/avantfax/admin  and login with:"
+echo "* username: admin"
+echo "* password: password"
+echo "* and configure groups, users, and modems for AVANTFAX"
+echo "*"
+echo "* Then go to https://yourserver/avantfax/"
+echo "* and login with one of the users you just created."
+echo "* Have a look at the config in /var/www/html/avantfax/includes/local_config.php"
+echo "* Good web faxing!!"
+echo "*"
+echo "*"
+echo "*"
+echo "*******************************************************************************"
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+exit 0

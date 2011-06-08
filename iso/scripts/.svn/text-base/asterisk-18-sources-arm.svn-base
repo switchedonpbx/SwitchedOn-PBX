@@ -1,0 +1,247 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+# asterisk-18-sources-arm - 07/05/2011
+#
+# SwitchedONPBX-1.0
+# Author: Federico Pereira <info@opentecnologic.com>
+# Author: Ramon Lozano <ramon@solidpc.net>
+# Copyright 2011 Federico Pereira (LordBaseX)
+# This script is licensed under GNU GPL version 2.0
+
+HELPINGWORDS="";
+
+#Check if asterisk is installed. Otherwise install it
+cat /etc/sop/sop-addons|grep asterisk &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+	cat /usr/src/scripts/ainstalar2.sh | grep asterisk-18-sources &>/dev/null
+	res=$?
+	if [ $res -eq 0 ]; then
+	echo Installing Asterisk from sources
+	fi
+else
+	echo Asterisk already installed
+	exit 0
+fi
+
+PKGNAME=asterisk-18-sources
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+#TAG:VARIABLES
+VER_ASTERISK="1.8.4";
+VER_DAHDI_COMPLETE="2.4.1+2.4.1";
+VER_LIBPRI="1.4.11.5";
+
+export DEBIAN_FRONTEND="noninteractive";
+
+#AUTO_DETECT_KERNEL
+KERNEL_VERSION=`uname -r`
+KERNEL_VERSION=`echo ${KERNEL_VERSION} | sed -e "s/\-\(.*\)//"`
+KERNEL_UP_VERSION=`echo ${KERNEL_VERSION} | sed -e "s/\(2\.[4,6]\)\(.*\)/\1/"`
+
+#TAG:DOWNLOADING SOURCES
+cd /usr/src
+wget http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-${VER_ASTERISK}.tar.gz -O /usr/src/asterisk-${VER_ASTERISK}.tar.gz
+wget http://downloads.asterisk.org/pub/telephony/dahdi-linux-complete/releases/dahdi-linux-complete-${VER_DAHDI_COMPLETE}.tar.gz -O /usr/src/dahdi-linux-complete-${VER_DAHDI_COMPLETE}.tar.gz
+wget http://downloads.asterisk.org/pub/telephony/libpri/releases/libpri-${VER_LIBPRI}.tar.gz -O /usr/src/libpri-${VER_LIBPRI}.tar.gz
+wget http://www.soft-switch.org/downloads/spandsp/spandsp-0.0.6pre18.tgz -O  /usr/src/spandsp-0.0.6pre18.tgz
+wget http://iksemel.googlecode.com/files/iksemel-1.4.tar.gz -O /usr/src/iksemel-1.4.tar.gz
+wget http://downloads.xiph.org/releases/speex/speex-1.2rc1.tar.gz -O /usr/src/speex-1.2rc1.tar.gz
+
+
+
+#TAG:PART 1 - PREPARING INSTALLATION
+echo "<<<<<<<<<<  PARTE 1 - PREPARING INSTALLATION  >>>>>>>>>>"
+
+#TAG:INSTALLING DEPENDENCIES
+PACKAGES="linux-source-$KERNEL_VERSION linux-headers-`uname -r` build-essential kernel-package g++ libncurses5-dev linux-libc-dev sqlite libnewt-dev libusb-dev zlib1g-dev libmysqlclient-dev libsqlite0-dev mc unzip zip iptraf nmap screen subversion libqt4-core libqt4-gui ntpdate tcpdump libiksemel-dev libtiff4-dev libxml2-dev bison libaudiofile-dev selinux-utils libspandsp-dev libsnmp15 libsnmp-base libsnmp-dev libiksemel3 libiksemel-dev libiksemel-utils libspeexdsp-dev libsnmp15 libsnmp-base libsnmp-dev libvorbis-dev libogg-dev jack resample libtonezone-dev unixodbc-bin unixodbc-dev  libasound2 libasound2-dev";
+# netpbm libgif-dev libmagic-dev
+
+aptitude -y install ${PACKAGES}
+
+#TAG:DECOMPRESSING KERNEL SOURCES
+echo ""
+echo "<<<<<<<<<<  DECOMPRESSING KERNEL SOURCES >>>>>>>>>>"
+cd /usr/src/
+tar xjf linux-source-${KERNEL_VERSION}.tar.bz2
+ln -s /usr/src/linux-source-${KERNEL_VERSION} /usr/src/linux
+ln -s /lib/modules/${KERNEL_VERSION}/ /lib/modules/`uname -r`/asterisk
+
+#TAG:EXTRACTING TEMPORARY FILES
+echo ""
+echo "<<<<<<<<<<  EXTRACTING TEMPORARY FILES  >>>>>>>>>>"
+cd /usr/src/
+tar zxf /usr/src/asterisk-${VER_ASTERISK}.tar.gz
+tar zxf /usr/src/libpri-${VER_LIBPRI}.tar.gz
+tar zxf /usr/src/dahdi-linux-complete-${VER_DAHDI_COMPLETE}.tar.gz
+tar zxf /usr/src/spandsp-*
+tar zxf /usr/src/iksemel-*
+tar zxf /usr/src/speex-*
+
+#TAG:PART 2 - ASTERISK INSTALLATION
+echo ""
+echo "<<<<<<<<<<  PARTE 2 - ASTERISK INSTALLATION  >>>>>>>>>>"
+
+#TAG:COMPILING IKSEMEL - CONFIGURE
+echo ""
+echo "<<<<<<<<<<  COMPILE IKSEMEL  >>>>>>>>>>"
+# download, make and install XML library for Google Talk
+cd /usr/src/
+cd iksemel-*
+./configure --build=arm-gnu-linux --disable-xmldoc
+#TAG:COMPILING IKSEMEL - MAKE
+make
+#TAG:COMPILING IKSEMEL - MAKE INSTALL
+make install
+cd ..
+
+#TAG:COMPILING SPEEX CODEC - CONFIGURE
+echo "<<<<<<<<<<  COMPILING SPEEX CODEC  >>>>>>>>>>"
+cd /usr/src/
+cd speex-*
+./configure --build=arm-gnu-linux --disable-xmldoc
+#TAG:COMPILING SPEEX CODEC - MAKE
+make
+#TAG:COMPILING SPEEX CODEC - MAKE INSTALL
+make install
+cd ..
+
+#TAG:COMPILING SPANDSP FAX - CONFIGURE
+echo ""
+echo "<<<<<<<<<<  COMPILING SPANDSP  >>>>>>>>>>"
+cd /usr/src/spandsp-*
+./configure --build=arm-gnu-linux --disable-xmldoc
+#TAG:COMPILING SPANDSP FAX - MAKE
+make
+#TAG:COMPILING SPANDSP FAX - MAKE INSTALL
+make install
+
+#TAG:COMPILING DAHDI-LINUX-COMPLETE - MAKE ALL
+echo ""
+echo "<<<<<<<<<<  COMPILING DAHDI-LINUX-COMPLETE  >>>>>>>>>>"
+cd /usr/src/dahdi-linux-complete-*
+make all
+#TAG:COMPILING DAHDI-LINUX-COMPLETE - MAKE INSTALL
+make install
+#TAG:COMPILING DAHDI-LINUX-COMPLETE - MAKE CONFIG
+make config
+
+#TAG:COMPILING LIBPRI - MAKE
+echo ""
+echo "<<<<<<<<<<  COMPILING LIBPRI  >>>>>>>>>>"
+cd /usr/src/libpri-*
+make
+#TAG:COMPILING LIBPRI - MAKE INSTALL
+make install
+
+#TAG:COMPILING ASTERISK - CONFIGURE
+echo ""
+echo "<<<<<<<<<<  COMPILING ASTERISK  >>>>>>>>>>"
+cd /usr/src/asterisk-*
+
+echo ""
+echo "<<<<<<<<<<  INSTALLATION CODEC ILBC  >>>>>>>>>>"
+#codec ilbc
+#/usr/src/asterisk-${VER_ASTERISK}/contrib/scripts/get_ilbc_source.sh
+wget -P codecs/ilbc http://www.ietf.org/rfc/rfc3951.txt 2>&1
+wget -q -O - http://www.ilbcfreeware.org/documentation/extract-cfile.awk | sed -e 's/\r//g' > codecs/ilbc/extract-cfile.awk 2>&1
+(cd codecs/ilbc && awk -f extract-cfile.awk rfc3951.txt)
+
+echo ""
+echo "<<<<<<<<<<  INSTALLATION MP3 SOURCE  >>>>>>>>>>"
+contrib/scripts/get_mp3_source.sh
+
+#TAG:BUILDING SRTP SUPPORT
+echo ""
+echo "<<<<<<<<<<  BUILDING SRTP SUPPORT  >>>>>>>>>>"
+cd /usr/src
+wget http://srtp.sourceforge.net/srtp-1.4.2.tgz
+tar zxvf srtp-1.4.2.tgz
+cd srtp/
+#TAG:COMPILING SRTP - CONFIGURE
+
+CFLAGS="-Wall -O4 -fexpensive-optimizations -funroll-loops -fPIC" ./configure --build=arm-gnu-linux --disable-xmldoc
+#TAG:COMPILING SRTP - MAKE
+make
+#TAG:COMPILING SRTP - MAKE INSTALL
+make install
+
+cd ../asterisk-${VER_ASTERISK}
+
+#TAG:COMPILING ASTERISK - CONFIGURE
+./configure --build=arm-gnu-linux --disable-xmldoc
+
+mkdir -p /usr/src/programs/menuselect
+svn export --force https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/programs/menuselect /usr/src/programs/menuselect
+cp /usr/src/programs/menuselect/${VER_ASTERISK}/menuselect-tree /usr/src/asterisk-${VER_ASTERISK}
+cp /usr/src/programs/menuselect/${VER_ASTERISK}/menuselect.makedeps /usr/src/asterisk-${VER_ASTERISK}
+cp /usr/src/programs/menuselect/${VER_ASTERISK}/menuselect.makeopts /usr/src/asterisk-${VER_ASTERISK}
+#make menuselect
+
+#TAG:COMPILING ASTERISK - MAKE
+make
+#TAG:COMPILING ASTERISK - MAKE INSTALL
+make install
+#TAG:COMPILING ASTERISK - MAKE SAMPLES
+make samples
+#TAG:COMPILING ASTERISK - MAKE CONFIG
+make config
+
+#TAG:PREPARING ASTERISK INSTALLATION
+echo ""
+echo "<<<<<<<<<<  PREPARING ASTERISK INSTALLATION  >>>>>>>>>>"
+#CREATE USER ASTERISK & GROUP
+adduser asterisk --disabled-password --home=/var/lib/asterisk --no-create-home --gecos "asterisk PBX user"
+adduser www-data asterisk
+
+#MODIFYING ASTERISK
+ln -s /var/lib/asterisk/moh /var/lib/asterisk/mohmp3   
+cp /etc/asterisk/asterisk.conf /etc/asterisk/asterisk.conf.`date +%Y.%m.%d.%Hh.%mm`
+sed -i "s/\(astrundir *=> *\)\(.*\)/\1\/var\/run\/asterisk/" /etc/asterisk/asterisk.conf
+sed -i '1 {s/\<sh\>/bash/}' /usr/sbin/safe_asterisk
+sed -i "s,SAFE_AST_BACKGROUND=0,SAFE_AST_BACKGROUND=1," /usr/sbin/safe_asterisk
+chown asterisk:asterisk -R /var/run/asterisk
+chown asterisk:asterisk -R /etc/asterisk
+chown asterisk:asterisk -R /var/lib/asterisk
+chown asterisk:asterisk -R /var/log/asterisk
+chown asterisk:asterisk -R /var/spool/asterisk
+chmod 770 /etc/asterisk/
+chmod 770 /var/lib/asterisk/
+
+#TAG:CHANGES FOR OPENVZ COMPATIBILITY
+sed -i 's/TTY=9/#TTY=9/g' /usr/sbin/safe_asterisk
+sed -i 's/chown asterisk \/dev\/tty9/#chown asterisk \/dev\/tty9/g' /etc/init.d/asterisk
+sed -i 's/\/sbin\/start_udev/#\/sbin\/start_udev/g' /etc/rc.d/rc.sysinit
+sed -i 's/\/usr\/sbin\/fxotune -s/#\/usr\/sbin\/fxotune -s/g' /etc/rc.local
+
+#TAG:RESTARTING DAHDI AND ASTERISK
+/etc/init.d/dahdi restart
+/etc/init.d/asterisk restart
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo "${PKGNAME}" >> /etc/sop/sop-addons
+

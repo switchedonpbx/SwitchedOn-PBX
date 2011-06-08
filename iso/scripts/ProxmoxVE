@@ -1,0 +1,114 @@
+#!/bin/bash
+#
+#
+#   .d8888b.                d8b 888            888                    888  .d88888b.  888b    888 
+#  d88P  Y88b               Y8P 888            888                    888 d88P" "Y88b 8888b   888 
+#  Y88b.                        888            888                    888 888     888 88888b  888 
+#   "Y888b.   888  888  888 888 888888 .d8888b 88888b.   .d88b.   .d88888 888     888 888Y88b 888 
+#      "Y88b. 888  888  888 888 888   d88P"    888 "88b d8P  Y8b d88" 888 888     888 888 Y88b888 
+#        "888 888  888  888 888 888   888      888  888 88888888 888  888 888     888 888  Y88888 
+#  Y88b  d88P Y88b 888 d88P 888 Y88b. Y88b.    888  888 Y8b.     Y88b 888 Y88b. .d88P 888   Y8888 
+#   "Y8888P"   "Y8888888P"  888  "Y888 "Y8888P 888  888  "Y8888   "Y88888  "Y88888P"  888    Y888 
+#                                                                                                
+#  
+#                                8888888b.  888888b.  Y88b   d88P 
+#                                888   Y88b 888  "88b  Y88b d88P  
+#                                888    888 888  .88P   Y88o88P   
+#                                888   d88P 8888888K.    Y888P    
+#                                8888888P"  888  "Y88b   d888b    
+#                                888        888    888  d88888b   
+#                                888        888   d88P d88P Y88b  
+#                                888        8888888P" d88P   Y88b 
+#										switchedonpbx.org
+#
+
+PKGNAME=$0
+
+#deletes ${PKGNAME} from /etc/sop/sop-addons
+mkdir -p /etc/sop/
+if [ -f /etc/sop/sop-addons ]; then
+        sed -i "/${PKGNAME}/d" /etc/sop/sop-addons
+fi
+
+grep proxmox /etc/apt/sources.list &>/dev/null
+res=$?
+if [ ! $res -eq 0 ]; then
+			echo "
+# PVE packages provided by proxmox.com
+deb http://download.proxmox.com/debian lenny pve
+" >> /etc/apt/sources.list
+fi
+
+# Add the Proxmox VE repository key:
+wget -O- "http://download.proxmox.com/debian/key.asc" | apt-key add -
+aptitude update
+aptitude -y upgrade
+
+#Install Proxmox VE Kernel
+aptitude -y install pve-kernel-2.6.32-4-pve pve-headers-2.6.32-4-pve
+
+grub-mkconfig -o /boot/grub/grub.cfg
+
+sed -i 's/default="0"/default="2"/g' /boot/grub/grub.cfg
+
+echo "bash /etc/sop/postinstall-ProxmoxVE" >> /etc/bash.bashrc
+echo "sed -i '/ProxmoxVE/d' /etc/bash.bashrc" >> /etc/bash.bashrc
+
+cat > /etc/sop/postinstall-ProxmoxVE << EOF
+
+echo "Wait a moment, executing ProxmoxVE postinstall script"
+aptitude -y install proxmox-ve-2.6.32 ntp ssh lvm2 &>/dev/null
+
+if [ -d /usr/src/dahdi-linux-complete-2.4.1+2.4.1 ]; then
+	echo "dahdi sources already downloaded. Rebuilding dahdi modules for new ProxmoxVE kernel "
+	cd /usr/scr/dahdi-linux-complete-2.4.1+2.4.1
+	make distclean &>/dev/null
+	make &>/dev/null && make install &>/dev/null && make config &>/dev/null
+	amportal stop
+	/etc/init.d/dahdi restart
+	amportal start
+fi
+
+dpkg -l|grep dahdi
+res=$?
+if [ $res -eq 1 ]; then
+	echo "dahdi not installed, no need to rebuild it for new ProxmoxVE kernel"
+else
+	echo "Downloading dahdi sources and rebuilding it for new ProxmoxVE kernel"
+	apt-get build-dep dahdi
+	apt-get source dahdi
+	apt-get -b source packagename
+	dpkg -i *.deb
+	mkdir /usr/src/debs
+	mv *.deb /usr/src/debs
+	amportal stop
+	/etc/init.d/dahdi restart
+	amportal start
+fi
+
+echo "Changing apache2 configuration to enable port 4443"
+sed -i 's/:443/:4443/g' /etc/apache2/sites-available/pve.conf
+grep "Listen 4443" /etc/apache2/ports.conf &>/dev/null
+res=\$?
+if [ ! \$res -eq 0 ]; then
+	echo "Listen 4443" >> /etc/apache2/ports.conf
+fi
+chown -R asterisk.asterisk /var/lib/libapache-sessionx-perl/DB_File/ /var/lib/libapache-sessionx-perl/File*
+/etc/init.d/apache2 force-reload
+rm -rf /etc/sop/postinstall-ProxmoxVE
+EOF
+
+#adds ${PKGNAME} to /etc/sop/sop-addons
+echo ${PKGNAME} >> /etc/sop/sop-addons
+
+echo "reboot your server to load new kernel and finish $PKGNAME installation. After login a postinstall script will be run.
+When it's done, you can enter https://yourserver:4443 with your root account/password to the $PKGNAME web interface"
+
+exit 0
+# NOTE: Due to the standard Debian and Proxmox VE kernels being from different series (2.6.26 and 2.6.18/24/32 respectively) your LAN interfaces may be given different device names when running the Proxmox VE kernel.
+# Test by checking the configuration of the first LAN device
+# ifconfig eth0
+# If the response is 'No device found', edit the following file to rename the LAN devices:
+# nano /etc/udev/rules.d/70-persistent-net.rules
+# Restart the system again if the LAN devices were renamed.
+
