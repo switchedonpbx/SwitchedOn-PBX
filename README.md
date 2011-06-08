@@ -1,10 +1,10 @@
-Wellcome to our latest dream...SwitchedON PBX, a new "OLD" Asterisk PBX based distribution.
+Welcome to our latest dream ... SwitchedON PBX, a new "OLD" Asterisk PBX based distribution.
 
 Why new and old? Simple, SwitchedON PBX is the natural evolution of Deselastixados, a fork of some Front End modules from Elastix(r) and the core from DEBPBX, the excellent project of debian and Asterisk made By Federico Pereira in 2009.
 
-But now, we need to introduce the distro, the crew and explain to you why we are here for!
+But now, we need to introduce the distro, the crew, and explain to you why we are here for!
 
-The Who? Main Devs Ramón Lozano and Federico Pereira.  Main Contribuitors, Testers, documentation and supporters: Tzafir Cohen, Dick Ollet, Fernando Villares
+The Who? Main Devs Ramón Lozano and Federico Pereira.  Main Contribuitors, Testers, documentation and supporters: Tzafir Cohen, Dick Ollett, Fernando Villares
 
 The Why and when? After April 2nd, 2011 Ramón, Dick, Fernando and other guys collaborating actively in Elastix PBX distro felt abandoned and dissapointed by the way things were managed there so we joined Federico and invited other people from here and there to develop a new project...made free and open source from Ground ZERO not attached to a PRIVATIVE CLOSED SPONSORSHIP as the vast majority of the actual PBX distros and as a result of this brainstorming days SWITCHED ON PBX was born.
 
