@@ -72,31 +72,28 @@ fi
 
 echo "Updating the svn directories . . . "
 
-svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/isolinux/   isolinux
-svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/usb/syslinux/   syslinux
-svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/preseed/ preseed
 
+svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx sop.svn 
+#svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/isolinux/   isolinux
+#svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/usb/syslinux/   syslinux
+#svn co https://switchedonpbx.svn.sourceforge.net/svnroot/switchedonpbx/iso/preseed/ preseed
 
 echo "Copying the needed syslinux structures int $BUILDDIR . . . "
-rsync --progress -av --exclude=".*" isolinux/*  $BUILDDIR
-rsync --progress -av --exclude=".*" syslinux/*  $BUILDDIR
-rsync --progress -av --exclude=".*" preseed  $BUILDDIR
+rsync --progress -a --exclude=".*" sop.svn/iso/isolinux/*  $BUILDDIR
+rsync --progress -a --exclude=".*" sop.svn/usb/syslinux/*  $BUILDDIR
+rsync --progress -a --exclude=".*" sop.svn/iso/preseed  $BUILDDIR
+rsync --progress -a --exclude="." sop.svn/usb/commands ${BUILDER}
 
 echo "Fix moving from cdrom to hd-media"
 
 sed -i "s:cdrom/:hd-media/:g" $BUILDDIR/*.cfg
-sed -i "s:cdrom/:hd-media/:g" $BUILDDIR/preseed/*
-
-echo "Fix the USB's concept of what the First Hard Drive actually is . . ."
-sed -i 's:^\s*localboot 0x80:\tmenu default\n\tlocalboot 0x81:' $BUILDDIR/menu.cfg
+#sed -i "s:cdrom/:hd-media/:g" $BUILDDIR/preseed/*
 
 # and remove old default and add a timeout 
 sed -i  '/menu default/d' $BUILDDIR/txt.cfg
 sed -i s'/timeout 0/timeout 900/' $BUILDDIR/syslinux.cfg 
 
  
-echo "fixing hardcoded hdds in /preseed/* "
-sed -i 's:/dev/sda:/dev/sdb:' $BUILDDIR/preseed/*
 
 ########temporarily do  dicko stuff
 sed -i 's/preseed.txt/preseed_ha.txt/' $BUILDDIR/txt.cfg
@@ -116,7 +113,7 @@ fi
 
 # this bit is to help those testing in  VirtualBox environment
 # 
-if  [ `which VirtualBox` -a ! -f $BUILDDIR.vmdk ]; then
+if  [ "`which VirtualBox`" -a ! -f $BUILDDIR.vmdk ]; then
 DEVICE=`mount|grep $BUILDDIR|awk '{print $1}'|tail -1`
 echo "Build a VirtualBox vmdk of $DEVICE called $BUILDDIR.vmdk . . ."
 	VBoxManage internalcommands createrawvmdk -filename $BUILDDIR.vmdk -rawdisk  $DEVICE
@@ -124,7 +121,7 @@ echo "You can add it to a VBox machine with sata port 0 to boot from $BUILDDIR .
 
 fi
 
-USBGUESS=`mount|grep '/dev/sd[b-z] ' |awk '{print $1}'|sort -r|tail -1`
+USBGUESS=`mount|grep '/dev/sd[b-z]' |awk '{print $1}'|sort -r|tail -1`
 
 echo "When happy you can 'dd if=$BUILDDIR.img of=/dev/sdx bs=M count=239'"
 echo "Getting /dev/sdx wrong can 'Spoil your whole day', so caveat implementor "
@@ -134,7 +131,7 @@ echo "p.s. dont forget to umount $BUILDDIR when you are done messing with it :) 
 echo "	and delete the $BUILDDIR.vmdk file, and purge it from VirtualBox. "
 echo
 echo "p.p.s be careful, partman-auto does NOT like double spaces"
-echo "Enjoy, DickO"
+echo "Enjoy, dicko"
 
 
 

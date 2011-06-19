@@ -6,7 +6,7 @@ But now, we need to introduce the distro, the crew, and explain to you why we ar
 
 The Who? Main Devs Ramón Lozano and Federico Pereira.  Main Contribuitors, Testers, documentation and supporters: Tzafir Cohen, Dick Ollett, Fernando Villares
 
-The Why and when? After April 2nd, 2011 Ramón, Dick, Fernando and other guys collaborating actively in Elastix PBX distro felt abandoned and dissapointed by the way things were managed there so we joined Federico and invited other people from here and there to develop a new project...made free and open source from Ground ZERO not attached to a PRIVATIVE CLOSED SPONSORSHIP as the vast majority of the actual PBX distros and as a result of this brainstorming days SWITCHED ON PBX was born.
+The Why and When? After April 2nd, 2011 Ramón, Dick, Fernando and other guys collaborating actively in Elastix PBX distro felt abandoned and dissapointed by the way things were managed there so we joined Federico and invited other people from here and there to develop a new project...made free and open source from Ground ZERO not attached to a PRIVATIVE CLOSED SPONSORSHIP as the vast majority of the actual PBX distros and as a result of this brainstorming days SWITCHED ON PBX was born.
 
 The Goal? To have a PBX system with state of the art software and features but keeping rock solid stability, versatility and robustness via a well controlled methodology of development, testing and deployment that others simply dont have in mind.
 
